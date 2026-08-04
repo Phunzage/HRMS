@@ -40,8 +40,6 @@
 - **批次1** ✅ 通过：分层清晰（handler→service→repository）、幂等 seed、统一响应规范、bcrypt 存密。
 - **批次2** ✅ 通过：JWT 限定 HS256 算法、RBAC 权限点查询正确、13 张表 AutoMigrate、4 账号+部门+岗位+员工 seed 完整。
 - **批次3** ✅ 通过：部门树/岗位/员工 CRUD 全接口验证 200；emp_no 用 pg_advisory_xact_lock 防并发重复；employee 角色移除了 employee:read（仅 /me 自助）；修复岗位 code 软删除唯一索引 bug；权限控制（401/403）验证通过。
-- **批次4** ✅ 通过：考勤打卡（check-in/check-out/手工补录/改删）与请假审批流（提交/列表/审批/驳回/取消/余额）全接口验证 200；审批流完整链路（liuyang 提交 3 天年假 → zhangwei 审批 → 余额 used=3/remaining=7）通过；余额不足/重复打卡/重复审批/越权 400/403 边界验证通过；无审批人部门自动审批通过并扣减余额；employee 角色补充 attendance:write（自助打卡）、hr 角色补充 leave:write（审批）。
-
 - **批次4** ✅ 通过：考勤打卡（late/early_leave 自动判定）+ 请假审批流全链路验证；审批人自动匹配部门经理；approve 事务内原子扣减余额；余额不足 400 中文提示；越权审批/补录 403；无审批人自动 approved 分支验证通过。
 - **批次5** ✅ 通过：薪酬净额自动计算 + draft→confirmed→paid 状态机 + 同月重复拦截；招聘职位/候选人状态流转；仪表盘 10 项指标 + 部门分布 + 6 个月趋势（缺失月份补 0）；权限矩阵（employee 仅看自己/403）全部验证通过。
 - **批次6** ✅ 通过：Vite+React18+TS+Tailwind4+daisyUI 脚手架；axios 拦截器（token 注入/code 解包/401 跳登录）；zustand persist；构建 0 错误；vite proxy 联调后端 login/health 正常。
