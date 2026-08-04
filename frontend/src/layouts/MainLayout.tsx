@@ -1,0 +1,82 @@
+import { NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { useAuthStore } from '../store/auth'
+
+// 侧边栏菜单项
+const menuItems = [
+  { to: '/', label: '仪表盘', icon: '📊', end: true },
+  { to: '/employees', label: '员工管理', icon: '👥' },
+  { to: '/departments', label: '部门岗位', icon: '🏢' },
+  { to: '/attendance', label: '考勤管理', icon: '🕐' },
+  { to: '/leaves', label: '请假审批', icon: '📋' },
+  { to: '/salaries', label: '薪酬管理', icon: '💰' },
+  { to: '/recruitment', label: '招聘管理', icon: '📌' },
+]
+
+// 角色编码 → 中文名称
+const roleNames: Record<string, string> = {
+  admin: '管理员',
+  hr: 'HR',
+  manager: '经理',
+  employee: '员工',
+}
+
+export default function MainLayout() {
+  const user = useAuthStore((s) => s.user)
+  const logout = useAuthStore((s) => s.logout)
+  const navigate = useNavigate()
+
+  const handleLogout = () => {
+    logout()
+    navigate('/login', { replace: true })
+  }
+
+  return (
+    <div className="flex min-h-screen">
+      {/* 侧边栏 */}
+      <aside className="w-60 shrink-0 border-r border-base-300 bg-base-100">
+        <div className="flex h-16 items-center gap-2 border-b border-base-300 px-4">
+          <span className="text-xl font-bold">HRMS</span>
+          <span className="badge badge-primary badge-sm">人力资源</span>
+        </div>
+        <ul className="menu w-full gap-1 p-2">
+          {menuItems.map((item) => (
+            <li key={item.to}>
+              <NavLink
+                to={item.to}
+                end={item.end}
+                className={({ isActive }) => (isActive ? 'active' : '')}
+              >
+                <span>{item.icon}</span>
+                {item.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      </aside>
+
+      {/* 主区域 */}
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* 顶栏 */}
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-base-300 bg-base-100 px-6">
+          <div className="text-lg font-medium">人力资源管理系统</div>
+          <div className="flex items-center gap-4">
+            <div className="text-right">
+              <div className="text-sm font-medium">{user?.full_name || '未登录'}</div>
+              <div className="text-xs text-base-content/60">
+                {user ? roleNames[user.role_code] || user.role_code : ''}
+              </div>
+            </div>
+            <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
+              退出登录
+            </button>
+          </div>
+        </header>
+
+        {/* 内容区 */}
+        <main className="flex-1 overflow-y-auto bg-base-200 p-6">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  )
+}

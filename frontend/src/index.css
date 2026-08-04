@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* daisyUI 组件库（默认 light 主题，与 html[data-theme] 保持一致） */
+@plugin "daisyui";
+
+body {
+  margin: 0;
+}
