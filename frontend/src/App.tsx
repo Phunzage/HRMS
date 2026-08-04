@@ -5,10 +5,22 @@ import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
 import EmployeeList from './pages/EmployeeList'
 import DepartmentTree from './pages/DepartmentTree'
+import PositionPage from './pages/PositionPage'
 import AttendancePage from './pages/AttendancePage'
 import LeavePage from './pages/LeavePage'
 import SalaryPage from './pages/SalaryPage'
 import RecruitmentPage from './pages/RecruitmentPage'
+import ProfilePage from './pages/ProfilePage'
+import { useAuthStore } from './store/auth'
+
+// 首页：admin/hr 看统计仪表盘，其他角色跳转到考勤（其具备权限的页面）
+function Home() {
+  const role = useAuthStore((s) => s.user?.role_code)
+  if (role === 'admin' || role === 'hr') {
+    return <Dashboard />
+  }
+  return <Navigate to="/attendance" replace />
+}
 
 function App() {
   return (
@@ -31,13 +43,15 @@ function App() {
           </RequireAuth>
         }
       >
-        <Route path="/" element={<Dashboard />} />
+        <Route path="/" element={<Home />} />
         <Route path="/employees" element={<EmployeeList />} />
         <Route path="/departments" element={<DepartmentTree />} />
+        <Route path="/positions" element={<PositionPage />} />
         <Route path="/attendance" element={<AttendancePage />} />
         <Route path="/leaves" element={<LeavePage />} />
         <Route path="/salaries" element={<SalaryPage />} />
         <Route path="/recruitment" element={<RecruitmentPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
       </Route>
 
       {/* 未匹配路由 → 首页（守卫会兜底跳登录） */}

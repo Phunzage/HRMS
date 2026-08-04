@@ -51,9 +51,14 @@ export function deleteJob(id: number) {
   return client.delete(`/recruitment/jobs/${id}`) as Promise<null>
 }
 
-// 候选人分页列表
-export function fetchCandidates(params: { status?: string; job_opening_id?: number; keyword?: string; page?: number; page_size?: number } = {}) {
+// 候选人分页列表（后端读取 job_id 过滤应聘职位）
+export function fetchCandidates(params: { status?: string; job_id?: number; keyword?: string; page?: number; page_size?: number } = {}) {
   return client.get('/recruitment/candidates', { params }) as Promise<PageResult<Candidate>>
+}
+
+// 全部招聘职位（供候选人表单下拉，拉取一页大分页）
+export function fetchAllJobs() {
+  return fetchJobs({ page: 1, page_size: 1000 })
 }
 
 // 创建候选人

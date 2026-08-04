@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { fetchDashboardStats, type DashboardStats, type DeptCount } from '../api/dashboard'
+import BarChart, { formatCompactAmount } from '../components/BarChart'
 
 // 统计卡片配置
 interface StatCard {
@@ -109,6 +110,29 @@ export default function Dashboard() {
         <div className="card-body">
           <h3 className="card-title text-base">部门人数分布</h3>
           <DeptDistribution data={stats.department_distribution} />
+        </div>
+      </div>
+
+      {/* 近 6 个月工资总额与招聘趋势 */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <div className="card bg-base-100 shadow-sm">
+          <div className="card-body">
+            <h3 className="card-title text-base">近 6 个月工资总额</h3>
+            <BarChart
+              items={stats.salary_trend.map((s) => ({ label: s.month, value: s.total_net }))}
+              color="bg-primary"
+              formatValue={formatCompactAmount}
+            />
+          </div>
+        </div>
+        <div className="card bg-base-100 shadow-sm">
+          <div className="card-body">
+            <h3 className="card-title text-base">近 6 个月招聘趋势</h3>
+            <BarChart
+              items={stats.recruit_trend.map((r) => ({ label: r.month, value: r.count }))}
+              color="bg-secondary"
+            />
+          </div>
         </div>
       </div>
     </div>

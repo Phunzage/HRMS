@@ -1,15 +1,18 @@
 import { NavLink, Outlet, useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../store/auth'
+import ToastContainer from '../components/Toast'
 
-// 侧边栏菜单项
+// 侧边栏菜单项：roles 控制可见角色（admin 拥有全部）
 const menuItems = [
-  { to: '/', label: '仪表盘', icon: '📊', end: true },
-  { to: '/employees', label: '员工管理', icon: '👥' },
-  { to: '/departments', label: '部门岗位', icon: '🏢' },
-  { to: '/attendance', label: '考勤管理', icon: '🕐' },
-  { to: '/leaves', label: '请假审批', icon: '📋' },
-  { to: '/salaries', label: '薪酬管理', icon: '💰' },
-  { to: '/recruitment', label: '招聘管理', icon: '📌' },
+  { to: '/', label: '仪表盘', icon: '📊', end: true, roles: ['admin', 'hr'] },
+  { to: '/employees', label: '员工管理', icon: '👥', roles: ['admin', 'hr', 'manager'] },
+  { to: '/departments', label: '部门管理', icon: '🏢', roles: ['admin', 'hr', 'manager'] },
+  { to: '/positions', label: '岗位管理', icon: '🗂️', roles: ['admin', 'hr'] },
+  { to: '/attendance', label: '考勤管理', icon: '🕐', roles: ['admin', 'hr', 'manager', 'employee'] },
+  { to: '/leaves', label: '请假审批', icon: '📋', roles: ['admin', 'hr', 'manager', 'employee'] },
+  { to: '/salaries', label: '薪酬管理', icon: '💰', roles: ['admin', 'hr', 'employee'] },
+  { to: '/recruitment', label: '招聘管理', icon: '📌', roles: ['admin', 'hr'] },
+  { to: '/profile', label: '个人中心', icon: '👤', roles: ['admin', 'hr', 'manager', 'employee'] },
 ]
 
 // 角色编码 → 中文名称
@@ -25,6 +28,9 @@ export default function MainLayout() {
   const logout = useAuthStore((s) => s.logout)
   const navigate = useNavigate()
 
+  // 按角色过滤菜单
+  const visibleMenu = menuItems.filter((item) => !user?.role_code || item.roles.includes(user.role_code))
+
   const handleLogout = () => {
     logout()
     navigate('/login', { replace: true })
@@ -39,7 +45,7 @@ export default function MainLayout() {
           <span className="badge badge-primary badge-sm">人力资源</span>
         </div>
         <ul className="menu w-full gap-1 p-2">
-          {menuItems.map((item) => (
+          {visibleMenu.map((item) => (
             <li key={item.to}>
               <NavLink
                 to={item.to}
@@ -77,6 +83,9 @@ export default function MainLayout() {
           <Outlet />
         </main>
       </div>
+
+      {/* 全局 toast */}
+      <ToastContainer />
     </div>
   )
 }

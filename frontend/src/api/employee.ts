@@ -38,7 +38,7 @@ export interface Department {
   children: Department[]
 }
 
-// 岗位
+// 岗位（列表附带所属部门名称）
 export interface Position {
   id: number
   name: string
@@ -46,6 +46,7 @@ export interface Position {
   department_id: number
   level: number
   remark: string
+  department_name?: string
 }
 
 export interface EmployeeQuery {
@@ -96,7 +97,61 @@ export function fetchDepartments() {
   return client.get('/departments') as Promise<Department[]>
 }
 
-// 岗位列表
-export function fetchPositions() {
-  return client.get('/positions') as Promise<Position[]>
+// 创建部门
+export function createDepartment(data: {
+  name: string
+  parent_id?: number
+  manager_id?: number | null
+  sort_order?: number
+  remark?: string
+}) {
+  return client.post('/departments', data) as Promise<Department>
+}
+
+// 更新部门（manager_id 传 null 表示清空负责人）
+export function updateDepartment(id: number, data: Record<string, unknown>) {
+  return client.put(`/departments/${id}`, data) as Promise<null>
+}
+
+// 删除部门（有子部门或员工时后端拒绝）
+export function deleteDepartment(id: number) {
+  return client.delete(`/departments/${id}`) as Promise<null>
+}
+
+// 岗位分页列表（后端返回分页结构）
+export function fetchPositions(
+  params: { keyword?: string; department_id?: number; page?: number; page_size?: number } = {},
+) {
+  return client.get('/positions', { params }) as Promise<PageResult<Position>>
+}
+
+// 全部岗位（供下拉选项，拉取一页大分页）
+export function fetchAllPositions() {
+  return fetchPositions({ page: 1, page_size: 1000 })
+}
+
+// 全部在职员工（供下拉选项，拉取一页大分页）
+export function fetchAllEmployees() {
+  return fetchEmployees({ page: 1, page_size: 1000 })
+}
+
+// 创建岗位
+export function createPosition(data: {
+  name: string
+  code: string
+  department_id: number
+  level?: number
+  remark?: string
+}) {
+  return client.post('/positions', data) as Promise<Position>
+}
+
+// 更新岗位
+export function updatePosition(id: number, data: Record<string, unknown>) {
+  return client.put(`/positions/${id}`, data) as Promise<null>
+}
+
+// 删除岗位（被员工占用时后端拒绝）
+export function deletePosition(id: number) {
+  return client.delete(`/positions/${id}`) as Promise<null>
 }
