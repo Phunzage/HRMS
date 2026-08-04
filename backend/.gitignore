@@ -1,0 +1,17 @@
+# 环境配置（含密码，不入库）
+.env
+
+# 编译产物
+bin/
+*.exe
+*.out
+
+# 日志
+*.log
+logs/
+
+# IDE / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
