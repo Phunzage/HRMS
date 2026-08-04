@@ -113,8 +113,8 @@ func seedRolePermissions(db *gorm.DB) error {
 			"leave:read", "leave:write",
 			"department:read",
 		},
+		// employee 角色无 employee:read：普通员工的员工档案只能通过 GET /employees/me 访问本人
 		"employee": {
-			"employee:read",
 			"attendance:read",
 			"leave:read", "leave:write",
 			"salary:read",
@@ -138,6 +138,16 @@ func seedRolePermissions(db *gorm.DB) error {
 				if err := db.Create(&models.RolePermission{RoleID: role.ID, PermissionID: perm.ID}).Error; err != nil {
 					return fmt.Errorf("关联角色 %s 权限 %s 失败: %w", roleCode, code, err)
 				}
+			}
+		}
+		// 清理：移除该角色下不在配置中的权限关联，保持与种子定义一致（幂等自愈）
+		var permIDs []uint
+		if err := db.Model(&models.Permission{}).Where("code IN ?", codes).Pluck("id", &permIDs).Error; err != nil {
+			return fmt.Errorf("查询角色 %s 权限点失败: %w", roleCode, err)
+		}
+		if len(permIDs) > 0 {
+			if err := db.Where("role_id = ? AND permission_id NOT IN ?", role.ID, permIDs).Delete(&models.RolePermission{}).Error; err != nil {
+				return fmt.Errorf("清理角色 %s 权限关联失败: %w", roleCode, err)
 			}
 		}
 	}
