@@ -103,7 +103,7 @@ func seedRolePermissions(db *gorm.DB) error {
 			"department:read", "department:write",
 			"position:read", "position:write",
 			"attendance:read", "attendance:write",
-			"leave:read",
+			"leave:read", "leave:write",
 			"salary:read", "salary:write",
 			"recruitment:read", "recruitment:write",
 		},
@@ -114,8 +114,9 @@ func seedRolePermissions(db *gorm.DB) error {
 			"department:read",
 		},
 		// employee 角色无 employee:read：普通员工的员工档案只能通过 GET /employees/me 访问本人
+		// attendance:write 用于员工自助打卡（check-in/check-out）
 		"employee": {
-			"attendance:read",
+			"attendance:read", "attendance:write",
 			"leave:read", "leave:write",
 			"salary:read",
 		},
@@ -308,6 +309,7 @@ func seedEmployees(db *gorm.DB, userIDs, deptIDs, posIDs map[string]uint) error 
 		{name: "张伟", username: "zhangwei", dept: "技术部", pos: "dept_manager", gender: 1, phone: "13800000001", email: "zhangwei@example.com"},
 		{name: "刘洋", username: "liuyang", dept: "后端组", pos: "backend_engineer", gender: 1, phone: "13800000002", email: "liuyang@example.com"},
 	}
+	var managerEmpID uint // 张伟的员工ID，用于回写部门负责人
 	for _, e := range employees {
 		userID := userIDs[e.username]
 		var emp models.Employee
@@ -343,6 +345,19 @@ func seedEmployees(db *gorm.DB, userIDs, deptIDs, posIDs map[string]uint) error 
 		if err := db.Model(&models.User{}).Where("id = ?", userID).Update("employee_id", emp.ID).Error; err != nil {
 			return fmt.Errorf("回写账号员工关联失败: %w", err)
 		}
+		if e.username == "zhangwei" {
+			managerEmpID = emp.ID
+		}
+	}
+	// 回写部门负责人：技术部/后端组经理 = 张伟（保证请假审批流能自动找到审批人，幂等）
+	if managerEmpID > 0 {
+		deptNames := []string{"技术部", "后端组"}
+		for _, name := range deptNames {
+			if err := db.Model(&models.Department{}).Where("name = ?", name).Update("manager_id", managerEmpID).Error; err != nil {
+				return fmt.Errorf("回写部门 %s 负责人失败: %w", name, err)
+			}
+		}
+		slog.Info("部门负责人已设置", "manager_id", managerEmpID)
 	}
 	return nil
 }

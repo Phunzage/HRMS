@@ -36,6 +36,16 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	empService := service.NewEmployeeService(empRepo, deptRepo, posRepo)
 	empHandler := handler.NewEmployee(empService)
 
+	// 考勤模块
+	attendanceRepo := repository.NewAttendanceRepo(db)
+	attendanceService := service.NewAttendanceService(attendanceRepo, empRepo)
+	attendanceHandler := handler.NewAttendance(attendanceService)
+
+	// 请假审批流模块
+	leaveRepo := repository.NewLeaveRepo(db)
+	leaveService := service.NewLeaveService(leaveRepo, empRepo)
+	leaveHandler := handler.NewLeave(leaveService)
+
 	// API v1 分组
 	v1 := r.Group("/api/v1")
 	{
@@ -79,6 +89,30 @@ func Register(r *gin.Engine, db *gorm.DB) {
 				employees.GET("/:id", middleware.RequirePermission(db, "employee:read"), empHandler.Get)
 				employees.PUT("/:id", middleware.RequirePermission(db, "employee:write"), empHandler.Update)
 				employees.DELETE("/:id", middleware.RequirePermission(db, "employee:write"), empHandler.Delete)
+			}
+
+			// 考勤管理
+			attendance := authed.Group("/attendance")
+			{
+				attendance.GET("", middleware.RequirePermission(db, "attendance:read"), attendanceHandler.List)
+				attendance.POST("/check-in", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.CheckIn)
+				attendance.POST("/check-out", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.CheckOut)
+				attendance.POST("/manual", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.Manual)
+				attendance.PUT("/:id", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.Update)
+				attendance.DELETE("/:id", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.Delete)
+			}
+
+			// 请假审批流
+			leaves := authed.Group("/leaves")
+			{
+				// 自助接口：仅需登录（静态段优先于 :id 匹配）
+				leaves.GET("/mine", leaveHandler.Mine)
+				leaves.GET("/balance", leaveHandler.Balance)
+				leaves.POST("", middleware.RequirePermission(db, "leave:write"), leaveHandler.Create)
+				leaves.GET("", middleware.RequirePermission(db, "leave:read"), leaveHandler.List)
+				leaves.PUT("/:id/approve", middleware.RequirePermission(db, "leave:write"), leaveHandler.Approve)
+				leaves.PUT("/:id/reject", middleware.RequirePermission(db, "leave:write"), leaveHandler.Reject)
+				leaves.PUT("/:id/cancel", leaveHandler.Cancel)
 			}
 		}
 	}
