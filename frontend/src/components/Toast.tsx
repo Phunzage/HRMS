@@ -1,3 +1,4 @@
+import { X } from 'lucide-react'
 import { useToastStore } from '../store/toast'
 
 // 类型 → daisyUI alert 颜色
@@ -18,7 +19,7 @@ export default function ToastContainer() {
         <div key={t.id} className={`alert ${typeClass[t.type]} py-2 text-sm shadow-lg`}>
           <span>{t.message}</span>
           <button type="button" className="btn btn-ghost btn-xs" onClick={() => remove(t.id)}>
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
       ))}

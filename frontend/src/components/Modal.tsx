@@ -1,4 +1,5 @@
 import { type ReactNode } from 'react'
+import { X } from 'lucide-react'
 
 interface ModalProps {
   open: boolean
@@ -18,7 +19,7 @@ export default function Modal({ open, title, children, footer, onClose }: ModalP
         <div className="flex items-center justify-between border-b border-base-300 pb-3">
           <h3 className="text-lg font-bold">{title}</h3>
           <button type="button" className="btn btn-sm btn-circle btn-ghost" onClick={onClose}>
-            ✕
+            <X className="h-4 w-4" />
           </button>
         </div>
         <div className="max-h-[60vh] overflow-y-auto py-4">{children}</div>

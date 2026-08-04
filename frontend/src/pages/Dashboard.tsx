@@ -1,4 +1,17 @@
 import { useEffect, useState } from 'react'
+import {
+  Users,
+  BadgeCheck,
+  UserPlus,
+  UserMinus,
+  CalendarCheck,
+  CalendarDays,
+  Inbox,
+  FileText,
+  Briefcase,
+  UserRound,
+  type LucideIcon,
+} from 'lucide-react'
 import { fetchDashboardStats, type DashboardStats, type DeptCount } from '../api/dashboard'
 import BarChart, { formatCompactAmount } from '../components/BarChart'
 
@@ -6,7 +19,7 @@ import BarChart, { formatCompactAmount } from '../components/BarChart'
 interface StatCard {
   label: string
   value: string
-  icon: string
+  icon: LucideIcon
 }
 
 function formatRate(rate: number): string {
@@ -14,10 +27,13 @@ function formatRate(rate: number): string {
 }
 
 function StatCardView({ label, value, icon }: StatCard) {
+  const Icon = icon
   return (
     <div className="card bg-base-100 shadow-sm">
       <div className="card-body flex-row items-center gap-4 p-5">
-        <div className="text-3xl">{icon}</div>
+        <div className="text-3xl">
+          <Icon className="h-6 w-6" />
+        </div>
         <div className="min-w-0">
           <div className="truncate text-sm text-base-content/60">{label}</div>
           <div className="text-2xl font-bold">{value}</div>
@@ -84,16 +100,16 @@ export default function Dashboard() {
   }
 
   const cards: StatCard[] = [
-    { label: '员工总数', value: String(stats.total_employees), icon: '👥' },
-    { label: '在职员工', value: String(stats.active_employees), icon: '✅' },
-    { label: '本月新增', value: String(stats.month_new_employees), icon: '➕' },
-    { label: '本月离职', value: String(stats.month_resigned), icon: '🚪' },
-    { label: '本月出勤率', value: formatRate(stats.month_attendance_rate), icon: '🕐' },
-    { label: '今日请假', value: String(stats.today_leave_count), icon: '📅' },
-    { label: '待审批请假', value: String(stats.pending_leave_count), icon: '📋' },
-    { label: '待确认工资单', value: String(stats.pending_salary_count), icon: '💰' },
-    { label: '在招职位', value: String(stats.open_job_count), icon: '📌' },
-    { label: '候选人', value: String(stats.candidate_count), icon: '👤' },
+    { label: '员工总数', value: String(stats.total_employees), icon: Users },
+    { label: '在职员工', value: String(stats.active_employees), icon: BadgeCheck },
+    { label: '本月新增', value: String(stats.month_new_employees), icon: UserPlus },
+    { label: '本月离职', value: String(stats.month_resigned), icon: UserMinus },
+    { label: '本月出勤率', value: formatRate(stats.month_attendance_rate), icon: CalendarCheck },
+    { label: '今日请假', value: String(stats.today_leave_count), icon: CalendarDays },
+    { label: '待审批请假', value: String(stats.pending_leave_count), icon: Inbox },
+    { label: '待确认工资单', value: String(stats.pending_salary_count), icon: FileText },
+    { label: '在招职位', value: String(stats.open_job_count), icon: Briefcase },
+    { label: '候选人', value: String(stats.candidate_count), icon: UserRound },
   ]
 
   return (

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Folder, FolderOpen } from 'lucide-react'
 import {
   fetchDepartments,
   fetchAllEmployees,
@@ -49,7 +50,13 @@ function DeptNode({ node, level, canManage, managerMap, onAdd, onEdit, onDelete 
         className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-base-200"
         style={{ paddingLeft: level * 24 + 8 }}
       >
-        <span className="text-base-content/50">{node.children?.length ? '📂' : '📁'}</span>
+        <span className="text-base-content/50">
+          {node.children?.length ? (
+            <FolderOpen className="h-4 w-4 text-base-content/50" />
+          ) : (
+            <Folder className="h-4 w-4 text-base-content/50" />
+          )}
+        </span>
         <span className="font-medium">{node.name}</span>
         <span className="text-xs text-base-content/50">
           负责人：{node.manager_id ? managerMap[node.manager_id] || `#${node.manager_id}` : '未设置'}
