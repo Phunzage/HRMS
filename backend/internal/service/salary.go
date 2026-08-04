@@ -13,13 +13,13 @@ import (
 
 // 工资业务错误
 var (
-	ErrSalaryNotFound     = errors.New("工资单不存在")
-	ErrSalaryEmpNotFound  = errors.New("员工不存在")
-	ErrSalaryEmpNoUser    = errors.New("当前账号未关联员工档案")
-	ErrSalaryMonthInvalid = errors.New("月份格式错误，应为 YYYY-MM")
+	ErrSalaryNotFound      = errors.New("工资单不存在")
+	ErrSalaryEmpNotFound   = errors.New("员工不存在")
+	ErrSalaryEmpNoUser     = errors.New("当前账号未关联员工档案")
+	ErrSalaryMonthInvalid  = errors.New("月份格式错误，应为 YYYY-MM")
 	ErrSalaryAlreadyExists = repository.ErrSalaryAlreadyExists
-	ErrSalaryNotDraft     = repository.ErrSalaryNotDraft
-	ErrSalaryNotConfirmed = repository.ErrSalaryNotConfirmed
+	ErrSalaryNotDraft      = repository.ErrSalaryNotDraft
+	ErrSalaryNotConfirmed  = repository.ErrSalaryNotConfirmed
 )
 
 // monthRegex 工资月份格式校验 YYYY-MM

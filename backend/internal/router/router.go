@@ -130,42 +130,42 @@ func Register(r *gin.Engine, db *gorm.DB) {
 				leaves.PUT("/:id/cancel", leaveHandler.Cancel)
 			}
 
-				// 薪酬管理
-				salaries := authed.Group("/salaries")
-				{
-					// 自助接口：员工查看自己的工资单（仅需登录）
-					salaries.GET("/mine", salaryHandler.Mine)
-					salaries.GET("", middleware.RequirePermission(db, "salary:read"), salaryHandler.List)
-					salaries.POST("", middleware.RequirePermission(db, "salary:write"), salaryHandler.Create)
-					salaries.PUT("/:id", middleware.RequirePermission(db, "salary:write"), salaryHandler.Update)
-					salaries.PUT("/:id/confirm", middleware.RequirePermission(db, "salary:write"), salaryHandler.Confirm)
-					salaries.PUT("/:id/pay", middleware.RequirePermission(db, "salary:write"), salaryHandler.Pay)
-				}
+			// 薪酬管理
+			salaries := authed.Group("/salaries")
+			{
+				// 自助接口：员工查看自己的工资单（仅需登录）
+				salaries.GET("/mine", salaryHandler.Mine)
+				salaries.GET("", middleware.RequirePermission(db, "salary:read"), salaryHandler.List)
+				salaries.POST("", middleware.RequirePermission(db, "salary:write"), salaryHandler.Create)
+				salaries.PUT("/:id", middleware.RequirePermission(db, "salary:write"), salaryHandler.Update)
+				salaries.PUT("/:id/confirm", middleware.RequirePermission(db, "salary:write"), salaryHandler.Confirm)
+				salaries.PUT("/:id/pay", middleware.RequirePermission(db, "salary:write"), salaryHandler.Pay)
+			}
 
-				// 招聘管理
-				recruitment := authed.Group("/recruitment")
+			// 招聘管理
+			recruitment := authed.Group("/recruitment")
+			{
+				jobs := recruitment.Group("/jobs")
 				{
-					jobs := recruitment.Group("/jobs")
-					{
-						jobs.GET("", middleware.RequirePermission(db, "recruitment:read"), recruitmentHandler.JobList)
-						jobs.POST("", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.JobCreate)
-						jobs.PUT("/:id", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.JobUpdate)
-						jobs.DELETE("/:id", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.JobDelete)
-					}
-					candidates := recruitment.Group("/candidates")
-					{
-						candidates.GET("", middleware.RequirePermission(db, "recruitment:read"), recruitmentHandler.CandidateList)
-						candidates.POST("", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.CandidateCreate)
-						candidates.PUT("/:id", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.CandidateUpdate)
-						candidates.DELETE("/:id", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.CandidateDelete)
-					}
+					jobs.GET("", middleware.RequirePermission(db, "recruitment:read"), recruitmentHandler.JobList)
+					jobs.POST("", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.JobCreate)
+					jobs.PUT("/:id", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.JobUpdate)
+					jobs.DELETE("/:id", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.JobDelete)
 				}
+				candidates := recruitment.Group("/candidates")
+				{
+					candidates.GET("", middleware.RequirePermission(db, "recruitment:read"), recruitmentHandler.CandidateList)
+					candidates.POST("", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.CandidateCreate)
+					candidates.PUT("/:id", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.CandidateUpdate)
+					candidates.DELETE("/:id", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.CandidateDelete)
+				}
+			}
 
-				// 统计仪表盘（admin/hr 可访问）
-				dashboard := authed.Group("/dashboard")
-				{
-					dashboard.GET("/stats", middleware.RequirePermission(db, "dashboard:read"), dashboardHandler.Stats)
-				}
+			// 统计仪表盘（admin/hr 可访问）
+			dashboard := authed.Group("/dashboard")
+			{
+				dashboard.GET("/stats", middleware.RequirePermission(db, "dashboard:read"), dashboardHandler.Stats)
 			}
 		}
 	}
+}

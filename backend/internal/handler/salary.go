@@ -116,12 +116,13 @@ func (h *Salary) handleErr(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, service.ErrSalaryMonthInvalid),
 		errors.Is(err, service.ErrSalaryEmpNotFound),
-		errors.Is(err, service.ErrSalaryEmpNoUser),
 		errors.Is(err, service.ErrSalaryAlreadyExists),
 		errors.Is(err, service.ErrSalaryNotDraft),
 		errors.Is(err, service.ErrSalaryNotConfirmed):
 		response.Error(c, http.StatusBadRequest, 400, err.Error())
-	case errors.Is(err, service.ErrSalaryNotFound):
+	case errors.Is(err, service.ErrSalaryEmpNoUser),
+		errors.Is(err, service.ErrSalaryNotFound):
+		// 自助读取（mine/list）时账号未关联员工档案按 404 处理，与其他模块自助接口一致
 		response.Error(c, http.StatusNotFound, 404, err.Error())
 	default:
 		response.Error(c, http.StatusInternalServerError, 500, "操作失败")

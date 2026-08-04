@@ -26,19 +26,19 @@ type MonthAmount struct {
 
 // DashboardStats 仪表盘统计结果
 type DashboardStats struct {
-	TotalEmployees         int64         `json:"total_employees"`           // 员工总数
-	ActiveEmployees        int64         `json:"active_employees"`          // 在职员工数
-	MonthNewEmployees      int64         `json:"month_new_employees"`       // 本月新增员工数
-	MonthResigned          int64         `json:"month_resigned"`            // 本月离职数
-	MonthAttendanceRate    float64       `json:"month_attendance_rate"`     // 本月出勤率
-	TodayLeaveCount        int64         `json:"today_leave_count"`         // 今日请假人数
-	PendingLeaveCount      int64         `json:"pending_leave_count"`       // 待审批请假数
-	PendingSalaryCount     int64         `json:"pending_salary_count"`      // 待确认工资单数
-	OpenJobCount           int64         `json:"open_job_count"`            // 在招职位数
-	CandidateCount         int64         `json:"candidate_count"`           // 候选人数
-	DepartmentDistribution []DeptCount   `json:"department_distribution"`   // 部门人数分布
-	RecruitTrend           []MonthCount  `json:"recruit_trend"`             // 近6个月招聘趋势
-	SalaryTrend            []MonthAmount `json:"salary_trend"`              // 近6个月工资总额
+	TotalEmployees         int64         `json:"total_employees"`         // 员工总数
+	ActiveEmployees        int64         `json:"active_employees"`        // 在职员工数
+	MonthNewEmployees      int64         `json:"month_new_employees"`     // 本月新增员工数
+	MonthResigned          int64         `json:"month_resigned"`          // 本月离职数
+	MonthAttendanceRate    float64       `json:"month_attendance_rate"`   // 本月出勤率
+	TodayLeaveCount        int64         `json:"today_leave_count"`       // 今日请假人数
+	PendingLeaveCount      int64         `json:"pending_leave_count"`     // 待审批请假数
+	PendingSalaryCount     int64         `json:"pending_salary_count"`    // 待确认工资单数
+	OpenJobCount           int64         `json:"open_job_count"`          // 在招职位数
+	CandidateCount         int64         `json:"candidate_count"`         // 候选人数
+	DepartmentDistribution []DeptCount   `json:"department_distribution"` // 部门人数分布
+	RecruitTrend           []MonthCount  `json:"recruit_trend"`           // 近6个月招聘趋势
+	SalaryTrend            []MonthAmount `json:"salary_trend"`            // 近6个月工资总额
 }
 
 // DashboardService 仪表盘业务服务
