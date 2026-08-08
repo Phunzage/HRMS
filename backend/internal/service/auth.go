@@ -64,6 +64,10 @@ func (s *AuthService) Login(username, password string) (*LoginResult, error) {
 	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(password)); err != nil {
 		return nil, ErrInvalidCredentials
 	}
+	// 校验账号状态：禁用账号拒绝登录（与密码错误统一返回，避免暴露账号状态）
+	if user.Status != 1 {
+		return nil, ErrInvalidCredentials
+	}
 	// 签发 JWT
 	now := time.Now()
 	claims := middleware.Claims{
