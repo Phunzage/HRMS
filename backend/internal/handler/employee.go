@@ -32,7 +32,7 @@ func (h *Employee) List(c *gin.Context) {
 	status := parseUintQuery(c, "status")
 	positionID := parseUintQuery(c, "position_id")
 	page, pageSize := response.Pagination(c)
-	items, total, err := h.service.List(keyword, departmentID, int(status), positionID, page, pageSize)
+	items, total, err := h.service.List(middleware.GetRoleCode(c), middleware.GetUserID(c), keyword, departmentID, int(status), positionID, page, pageSize)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, 500, "获取员工列表失败")
 		return
@@ -66,7 +66,7 @@ func (h *Employee) Export(c *gin.Context) {
 	departmentID := parseUintQuery(c, "department_id")
 	status := parseUintQuery(c, "status")
 	positionID := parseUintQuery(c, "position_id")
-	headers, rows, err := h.service.ExportRows(keyword, departmentID, int(status), positionID)
+	headers, rows, err := h.service.ExportRows(middleware.GetRoleCode(c), middleware.GetUserID(c), keyword, departmentID, int(status), positionID)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, 500, "导出员工花名册失败")
 		return

@@ -31,7 +31,8 @@ func NewEmployeeRepo(db *gorm.DB) *EmployeeRepo {
 }
 
 // employeeQuery 员工列表基础查询（带部门/岗位 JOIN，软删除自动过滤）
-func (r *EmployeeRepo) employeeQuery(keyword string, departmentID uint, status int, positionID uint) *gorm.DB {
+// deptIDs 为数据范围部门 ID 列表（HR 负责部门及子部门），nil/空则不过滤
+func (r *EmployeeRepo) employeeQuery(keyword string, departmentID uint, status int, positionID uint, deptIDs []uint) *gorm.DB {
 	q := r.db.Model(&models.Employee{}).
 		Joins("LEFT JOIN departments d ON d.id = employees.department_id").
 		Joins("LEFT JOIN positions p ON p.id = employees.position_id")
@@ -48,17 +49,20 @@ func (r *EmployeeRepo) employeeQuery(keyword string, departmentID uint, status i
 	if positionID > 0 {
 		q = q.Where("employees.position_id = ?", positionID)
 	}
+	if len(deptIDs) > 0 {
+		q = q.Where("employees.department_id IN ?", deptIDs)
+	}
 	return q
 }
 
-// List 员工分页列表，支持 keyword / department_id / status / position_id 过滤
-func (r *EmployeeRepo) List(keyword string, departmentID uint, status int, positionID uint, page, pageSize int) ([]EmployeeItem, int64, error) {
+// List 员工分页列表，支持 keyword / department_id / status / position_id 过滤，deptIDs 为数据范围（nil 不过滤）
+func (r *EmployeeRepo) List(keyword string, departmentID uint, status int, positionID uint, deptIDs []uint, page, pageSize int) ([]EmployeeItem, int64, error) {
 	var total int64
-	if err := r.employeeQuery(keyword, departmentID, status, positionID).Count(&total).Error; err != nil {
+	if err := r.employeeQuery(keyword, departmentID, status, positionID, deptIDs).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 	var items []EmployeeItem
-	err := r.employeeQuery(keyword, departmentID, status, positionID).
+	err := r.employeeQuery(keyword, departmentID, status, positionID, deptIDs).
 		Select("employees.*, d.name AS department_name, p.name AS position_name").
 		Order("employees.id ASC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
@@ -69,10 +73,10 @@ func (r *EmployeeRepo) List(keyword string, departmentID uint, status int, posit
 	return items, total, nil
 }
 
-// ExportAll 导出全部匹配员工（不分页），支持与列表相同的过滤参数
-func (r *EmployeeRepo) ExportAll(keyword string, departmentID uint, status int, positionID uint) ([]EmployeeItem, error) {
+// ExportAll 导出全部匹配员工（不分页），支持与列表相同的过滤参数，deptIDs 为数据范围（nil 不过滤）
+func (r *EmployeeRepo) ExportAll(keyword string, departmentID uint, status int, positionID uint, deptIDs []uint) ([]EmployeeItem, error) {
 	var items []EmployeeItem
-	err := r.employeeQuery(keyword, departmentID, status, positionID).
+	err := r.employeeQuery(keyword, departmentID, status, positionID, deptIDs).
 		Select("employees.*, d.name AS department_name, p.name AS position_name").
 		Order("employees.id ASC").
 		Scan(&items).Error

@@ -69,25 +69,34 @@ type CreateEmployeeResult struct {
 
 // EmployeeService 员工业务服务
 type EmployeeService struct {
+	db       *gorm.DB // 数据范围解析用（ResolveScope）
 	empRepo  *repository.EmployeeRepo
 	deptRepo *repository.DepartmentRepo
 	posRepo  *repository.PositionRepo
 }
 
 // NewEmployeeService 创建员工服务
-func NewEmployeeService(empRepo *repository.EmployeeRepo, deptRepo *repository.DepartmentRepo, posRepo *repository.PositionRepo) *EmployeeService {
-	return &EmployeeService{empRepo: empRepo, deptRepo: deptRepo, posRepo: posRepo}
+func NewEmployeeService(db *gorm.DB, empRepo *repository.EmployeeRepo, deptRepo *repository.DepartmentRepo, posRepo *repository.PositionRepo) *EmployeeService {
+	return &EmployeeService{db: db, empRepo: empRepo, deptRepo: deptRepo, posRepo: posRepo}
 }
 
-// List 员工分页列表，支持 keyword / department_id / status / position_id 过滤
-func (s *EmployeeService) List(keyword string, departmentID uint, status int, positionID uint, page, pageSize int) ([]repository.EmployeeItem, int64, error) {
-	return s.empRepo.List(keyword, departmentID, status, positionID, page, pageSize)
+// List 员工分页列表，支持 keyword / department_id / status / position_id 过滤，按角色数据范围过滤（hr 仅负责部门及子部门）
+func (s *EmployeeService) List(roleCode string, userID uint, keyword string, departmentID uint, status int, positionID uint, page, pageSize int) ([]repository.EmployeeItem, int64, error) {
+	scopeDeptIDs, err := ResolveScope(s.db, userID, roleCode)
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.empRepo.List(keyword, departmentID, status, positionID, scopeDeptIDs, page, pageSize)
 }
 
-// ExportRows 导出员工花名册数据行（含表头与性别/状态中文映射），导出全部匹配不分页
-func (s *EmployeeService) ExportRows(keyword string, departmentID uint, status int, positionID uint) ([]string, [][]interface{}, error) {
+// ExportRows 导出员工花名册数据行（含表头与性别/状态中文映射），导出全部匹配不分页，与列表范围一致
+func (s *EmployeeService) ExportRows(roleCode string, userID uint, keyword string, departmentID uint, status int, positionID uint) ([]string, [][]interface{}, error) {
 	headers := []string{"工号", "姓名", "性别", "部门", "岗位", "手机", "邮箱", "入职日期", "状态", "备注"}
-	items, err := s.empRepo.ExportAll(keyword, departmentID, status, positionID)
+	scopeDeptIDs, err := ResolveScope(s.db, userID, roleCode)
+	if err != nil {
+		return nil, nil, err
+	}
+	items, err := s.empRepo.ExportAll(keyword, departmentID, status, positionID, scopeDeptIDs)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -26,7 +26,7 @@ func TestGenerateEmpNo(t *testing.T) {
 		t.Fatalf("插入占位员工失败: %v", err)
 	}
 
-	svc := NewEmployeeService(repository.NewEmployeeRepo(tx), repository.NewDepartmentRepo(tx), repository.NewPositionRepo(tx))
+	svc := NewEmployeeService(tx, repository.NewEmployeeRepo(tx), repository.NewDepartmentRepo(tx), repository.NewPositionRepo(tx))
 	res, err := svc.Create(CreateEmployeeRequest{Name: "新员工", DepartmentID: dept.ID, PositionID: pos.ID})
 	if err != nil {
 		t.Fatalf("创建员工失败: %v", err)
@@ -49,7 +49,7 @@ func TestEmpNoConcurrentUnique(t *testing.T) {
 		t.Fatalf("查询共享测试岗位失败: %v", err)
 	}
 
-	svc := NewEmployeeService(repository.NewEmployeeRepo(db), repository.NewDepartmentRepo(db), repository.NewPositionRepo(db))
+	svc := NewEmployeeService(db, repository.NewEmployeeRepo(db), repository.NewDepartmentRepo(db), repository.NewPositionRepo(db))
 
 	const n = 10
 	var wg sync.WaitGroup

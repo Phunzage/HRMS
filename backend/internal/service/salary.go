@@ -48,16 +48,17 @@ type UpdateSalaryRequest struct {
 
 // SalaryService 工资业务服务
 type SalaryService struct {
+	db         *gorm.DB // 数据范围解析用（ResolveScope）
 	salaryRepo *repository.SalaryRepo
 	empRepo    *repository.EmployeeRepo
 }
 
 // NewSalaryService 创建工资服务
-func NewSalaryService(salaryRepo *repository.SalaryRepo, empRepo *repository.EmployeeRepo) *SalaryService {
-	return &SalaryService{salaryRepo: salaryRepo, empRepo: empRepo}
+func NewSalaryService(db *gorm.DB, salaryRepo *repository.SalaryRepo, empRepo *repository.EmployeeRepo) *SalaryService {
+	return &SalaryService{db: db, salaryRepo: salaryRepo, empRepo: empRepo}
 }
 
-// List 工资单分页列表，按角色范围过滤（employee 角色仅看自己）
+// List 工资单分页列表，按角色范围过滤（employee 角色仅看自己；hr 受负责部门数据范围限制）
 func (s *SalaryService) List(roleCode string, userID uint, month string, employeeID uint, status string, departmentID uint, page, pageSize int) ([]repository.SalaryItem, int64, error) {
 	if roleCode == "employee" {
 		empID, err := s.requireEmployee(userID)
@@ -66,11 +67,15 @@ func (s *SalaryService) List(roleCode string, userID uint, month string, employe
 		}
 		employeeID = empID
 	}
-	return s.salaryRepo.List(employeeID, month, status, departmentID, page, pageSize)
+	scopeDeptIDs, err := ResolveScope(s.db, userID, roleCode)
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.salaryRepo.List(employeeID, month, status, departmentID, scopeDeptIDs, page, pageSize)
 }
 
 // ExportRows 导出工资表数据行（含表头与状态中文映射），导出全部匹配不分页；
-// employee 角色仅导出本人工资单，与列表接口范围一致
+// employee 角色仅导出本人工资单；hr 受负责部门数据范围限制；与列表接口范围一致
 func (s *SalaryService) ExportRows(roleCode string, userID uint, month, status string, departmentID uint) ([]string, [][]interface{}, error) {
 	headers := []string{"月份", "工号", "姓名", "部门", "基本工资", "津贴", "奖金", "扣款", "实发", "状态"}
 	employeeID := uint(0)
@@ -82,7 +87,11 @@ func (s *SalaryService) ExportRows(roleCode string, userID uint, month, status s
 		employeeID = empID
 		departmentID = 0
 	}
-	items, err := s.salaryRepo.ExportAll(employeeID, month, status, departmentID)
+	scopeDeptIDs, err := ResolveScope(s.db, userID, roleCode)
+	if err != nil {
+		return nil, nil, err
+	}
+	items, err := s.salaryRepo.ExportAll(employeeID, month, status, departmentID, scopeDeptIDs)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -216,6 +225,15 @@ func (s *SalaryService) Pay(id uint) error {
 		return err
 	}
 	return s.salaryRepo.Pay(id)
+}
+
+// BatchGenerate 批量生成某月工资单：为当月尚无工资单的在职员工创建 draft 工资单，
+// 金额复制各自最近一张历史工资单，无历史则全 0。返回生成数与跳过数（已有工资单或非在职）。
+func (s *SalaryService) BatchGenerate(month string) (*repository.BatchGenerateResult, error) {
+	if !monthRegex.MatchString(month) {
+		return nil, ErrSalaryMonthInvalid
+	}
+	return s.salaryRepo.BatchGenerate(month)
 }
 
 // requireEmployee 根据登录用户解析关联的员工 ID

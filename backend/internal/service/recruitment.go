@@ -71,19 +71,24 @@ type UpdateCandidateRequest struct {
 
 // RecruitmentService 招聘业务服务
 type RecruitmentService struct {
+	db         *gorm.DB // 数据范围解析用（ResolveScope）
 	recruitRepo *repository.RecruitmentRepo
 	deptRepo    *repository.DepartmentRepo
 	posRepo     *repository.PositionRepo
 }
 
 // NewRecruitmentService 创建招聘服务
-func NewRecruitmentService(recruitRepo *repository.RecruitmentRepo, deptRepo *repository.DepartmentRepo, posRepo *repository.PositionRepo) *RecruitmentService {
-	return &RecruitmentService{recruitRepo: recruitRepo, deptRepo: deptRepo, posRepo: posRepo}
+func NewRecruitmentService(db *gorm.DB, recruitRepo *repository.RecruitmentRepo, deptRepo *repository.DepartmentRepo, posRepo *repository.PositionRepo) *RecruitmentService {
+	return &RecruitmentService{db: db, recruitRepo: recruitRepo, deptRepo: deptRepo, posRepo: posRepo}
 }
 
-// JobList 招聘职位分页列表
-func (s *RecruitmentService) JobList(status, keyword string, page, pageSize int) ([]repository.JobItem, int64, error) {
-	return s.recruitRepo.JobList(status, keyword, page, pageSize)
+// JobList 招聘职位分页列表，按角色数据范围过滤（hr 仅负责部门及子部门的职位）
+func (s *RecruitmentService) JobList(roleCode string, userID uint, status, keyword string, page, pageSize int) ([]repository.JobItem, int64, error) {
+	scopeDeptIDs, err := ResolveScope(s.db, userID, roleCode)
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.recruitRepo.JobList(status, keyword, scopeDeptIDs, page, pageSize)
 }
 
 // JobCreate 创建招聘职位：校验名称非空、部门与岗位存在、状态合法

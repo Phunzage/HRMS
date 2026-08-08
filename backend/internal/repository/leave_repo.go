@@ -20,12 +20,13 @@ type LeaveItem struct {
 }
 
 // LeaveScope 请假列表访问范围（按角色解析后传给仓库）
-// 三种范围互斥：EmployeeID（员工只看自己）/ ApproverID（经理看本部门+待自己审批）/ DepartmentID（仅本部门）
+// 范围互斥：EmployeeID（员工只看自己）/ ApproverID（经理看本部门+待自己审批）/ DepartmentID（仅本部门）/ DeptIDs（HR 负责部门及子部门）
 type LeaveScope struct {
-	EmployeeID   uint // 仅看自己的申请
-	ApproverID   uint // 经理：本部门员工 + 待自己审批的申请
-	DepartmentID uint // 经理所属部门
-	Empty        bool // 无任何可见范围，返回空
+	EmployeeID   uint   // 仅看自己的申请
+	ApproverID   uint   // 经理：本部门员工 + 待自己审批的申请
+	DepartmentID uint   // 经理所属部门
+	DeptIDs      []uint // HR 数据范围部门 ID 列表（nil/空则不过滤）
+	Empty        bool   // 无任何可见范围，返回空
 }
 
 // LeaveRepo 请假数据仓库
@@ -55,6 +56,9 @@ func (r *LeaveRepo) leaveQuery(scope LeaveScope, status string, employeeID uint)
 			scope.DepartmentID, scope.ApproverID, "pending")
 	case scope.DepartmentID > 0:
 		q = q.Where("e.department_id = ?", scope.DepartmentID)
+	case len(scope.DeptIDs) > 0:
+		// HR 数据范围：负责部门及子部门员工
+		q = q.Where("e.department_id IN ?", scope.DeptIDs)
 	}
 	if status != "" {
 		q = q.Where("leave_requests.status = ?", status)

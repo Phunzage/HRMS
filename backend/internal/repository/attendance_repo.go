@@ -16,6 +16,19 @@ type AttendanceItem struct {
 	DepartmentName string `json:"department_name"`
 }
 
+// AttendanceReportItem 考勤月报汇总项（按员工聚合某月各考勤状态计数）
+type AttendanceReportItem struct {
+	EmployeeID     uint   `json:"employee_id"`
+	EmployeeName   string `json:"employee_name"`
+	DepartmentName string `json:"department_name"`
+	WorkDays       int    `json:"work_days"`        // 当月考勤总条数
+	NormalDays     int    `json:"normal_days"`      // normal 条数
+	LateCount      int    `json:"late_count"`       // late 条数
+	EarlyLeaveCount int   `json:"early_leave_count"` // early_leave 条数
+	AbsentDays     int    `json:"absent_days"`      // absent 条数
+	LeaveDays      int    `json:"leave_days"`       // leave 条数
+}
+
 // AttendanceRepo 考勤数据仓库
 type AttendanceRepo struct {
 	db *gorm.DB
@@ -28,7 +41,8 @@ func NewAttendanceRepo(db *gorm.DB) *AttendanceRepo {
 
 // attendanceQuery 考勤列表基础查询（带员工/部门 JOIN，软删除自动过滤）
 // workDate 为 "YYYY-MM-DD" 精确匹配；month 为 "2026-07" 用 LIKE 匹配前缀
-func (r *AttendanceRepo) attendanceQuery(employeeID uint, workDate, month, status string) *gorm.DB {
+// deptIDs 为数据范围部门 ID 列表（HR 负责部门及子部门），nil/空则不过滤
+func (r *AttendanceRepo) attendanceQuery(employeeID uint, workDate, month, status string, deptIDs []uint) *gorm.DB {
 	q := r.db.Model(&models.Attendance{}).
 		Joins("LEFT JOIN employees e ON e.id = attendances.employee_id").
 		Joins("LEFT JOIN departments d ON d.id = e.department_id")
@@ -44,17 +58,20 @@ func (r *AttendanceRepo) attendanceQuery(employeeID uint, workDate, month, statu
 	if status != "" {
 		q = q.Where("attendances.status = ?", status)
 	}
+	if len(deptIDs) > 0 {
+		q = q.Where("e.department_id IN ?", deptIDs)
+	}
 	return q
 }
 
-// List 考勤分页列表，支持 employee_id / work_date / month / status 过滤
-func (r *AttendanceRepo) List(employeeID uint, workDate, month, status string, page, pageSize int) ([]AttendanceItem, int64, error) {
+// List 考勤分页列表，支持 employee_id / work_date / month / status 过滤，deptIDs 为数据范围（nil 不过滤）
+func (r *AttendanceRepo) List(employeeID uint, workDate, month, status string, deptIDs []uint, page, pageSize int) ([]AttendanceItem, int64, error) {
 	var total int64
-	if err := r.attendanceQuery(employeeID, workDate, month, status).Count(&total).Error; err != nil {
+	if err := r.attendanceQuery(employeeID, workDate, month, status, deptIDs).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
 	var items []AttendanceItem
-	err := r.attendanceQuery(employeeID, workDate, month, status).
+	err := r.attendanceQuery(employeeID, workDate, month, status, deptIDs).
 		Select("attendances.*, e.name AS employee_name, d.name AS department_name").
 		Order("attendances.work_date DESC, attendances.employee_id ASC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
@@ -63,6 +80,40 @@ func (r *AttendanceRepo) List(employeeID uint, workDate, month, status string, p
 		return nil, 0, err
 	}
 	return items, total, nil
+}
+
+// Report 考勤月报：按员工聚合某月的各考勤状态计数，返回当月有考勤记录的员工汇总
+// month 为 "2026-08"；departmentID 为界面筛选（0 不过滤）；deptIDs 为数据范围（nil 不过滤）；employeeID 指定员工（0 不过滤，employee 角色仅看自己）
+// 排序按 department_id, employee_id
+func (r *AttendanceRepo) Report(month string, departmentID uint, deptIDs []uint, employeeID uint) ([]AttendanceReportItem, error) {
+	q := r.db.Model(&models.Attendance{}).
+		Select(`attendances.employee_id, e.name AS employee_name, d.name AS department_name,
+			COUNT(*) AS work_days,
+			COUNT(*) FILTER (WHERE attendances.status = 'normal') AS normal_days,
+			COUNT(*) FILTER (WHERE attendances.status = 'late') AS late_count,
+			COUNT(*) FILTER (WHERE attendances.status = 'early_leave') AS early_leave_count,
+			COUNT(*) FILTER (WHERE attendances.status = 'absent') AS absent_days,
+			COUNT(*) FILTER (WHERE attendances.status = 'leave') AS leave_days`).
+		Joins("JOIN employees e ON e.id = attendances.employee_id").
+		Joins("LEFT JOIN departments d ON d.id = e.department_id").
+		Where("CAST(attendances.work_date AS TEXT) LIKE ?", month+"%").
+		Group("attendances.employee_id, e.department_id, e.name, d.name").
+		Order("e.department_id ASC, attendances.employee_id ASC")
+	if departmentID > 0 {
+		q = q.Where("e.department_id = ?", departmentID)
+	}
+	if len(deptIDs) > 0 {
+		q = q.Where("e.department_id IN ?", deptIDs)
+	}
+	if employeeID > 0 {
+		q = q.Where("attendances.employee_id = ?", employeeID)
+	}
+	// 初始化为空切片，无匹配时 JSON 返回 [] 而非 null
+	items := []AttendanceReportItem{}
+	if err := q.Scan(&items).Error; err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 // FindByID 根据 ID 查询考勤记录

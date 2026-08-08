@@ -24,6 +24,7 @@ var (
 	ErrAttDupRecord    = errors.New("该员工当日已有考勤记录")
 	ErrAttStatusBad    = errors.New("考勤状态不合法")
 	ErrAttTimeOrderBad = errors.New("下班时间必须晚于上班时间")
+	ErrAttMonthBad     = errors.New("月份格式错误，应为 YYYY-MM")
 )
 
 // 考勤状态集合
@@ -55,23 +56,59 @@ type UpdateAttendanceRequest struct {
 
 // AttendanceService 考勤业务服务
 type AttendanceService struct {
+	db      *gorm.DB // 数据范围解析用（ResolveScope）
 	attRepo *repository.AttendanceRepo
 	empRepo *repository.EmployeeRepo
 }
 
 // NewAttendanceService 创建考勤服务
-func NewAttendanceService(attRepo *repository.AttendanceRepo, empRepo *repository.EmployeeRepo) *AttendanceService {
-	return &AttendanceService{attRepo: attRepo, empRepo: empRepo}
+func NewAttendanceService(db *gorm.DB, attRepo *repository.AttendanceRepo, empRepo *repository.EmployeeRepo) *AttendanceService {
+	return &AttendanceService{db: db, attRepo: attRepo, empRepo: empRepo}
 }
 
-// List 考勤分页列表，支持 employee_id / work_date / month / status 过滤
-func (s *AttendanceService) List(employeeID uint, workDate, month, status string, page, pageSize int) ([]repository.AttendanceItem, int64, error) {
+// List 考勤分页列表，支持 employee_id / work_date / month / status 过滤，按角色数据范围过滤（hr 仅负责部门及子部门）
+func (s *AttendanceService) List(roleCode string, userID uint, employeeID uint, workDate, month, status string, page, pageSize int) ([]repository.AttendanceItem, int64, error) {
 	if workDate != "" {
 		if _, err := time.Parse("2006-01-02", workDate); err != nil {
 			return nil, 0, ErrAttDateBad
 		}
 	}
-	return s.attRepo.List(employeeID, workDate, month, status, page, pageSize)
+	scopeDeptIDs, err := ResolveScope(s.db, userID, roleCode)
+	if err != nil {
+		return nil, 0, err
+	}
+	return s.attRepo.List(employeeID, workDate, month, status, scopeDeptIDs, page, pageSize)
+}
+
+// AttendanceReport 考勤月报响应结构
+type AttendanceReport struct {
+	List  []repository.AttendanceReportItem `json:"list"`
+	Month string                            `json:"month"`
+}
+
+// Report 考勤月报：汇总某月每个有考勤记录员工的各状态计数。
+// employee 角色仅返回自己；hr 受数据范围限制；支持 department_id 界面筛选
+func (s *AttendanceService) Report(roleCode string, userID uint, month string, departmentID uint) (*AttendanceReport, error) {
+	if !monthRegex.MatchString(month) {
+		return nil, ErrAttMonthBad
+	}
+	scopeDeptIDs, err := ResolveScope(s.db, userID, roleCode)
+	if err != nil {
+		return nil, err
+	}
+	employeeID := uint(0)
+	if roleCode == "employee" {
+		empID, err := s.requireEmployeeID(userID)
+		if err != nil {
+			return nil, err
+		}
+		employeeID = empID
+	}
+	items, err := s.attRepo.Report(month, departmentID, scopeDeptIDs, employeeID)
+	if err != nil {
+		return nil, err
+	}
+	return &AttendanceReport{List: items, Month: month}, nil
 }
 
 // CheckIn 打卡上班：按当前登录用户关联的员工，今日已打卡则报错

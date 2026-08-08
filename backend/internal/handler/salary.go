@@ -75,6 +75,24 @@ func (h *Salary) Create(c *gin.Context) {
 	response.OK(c, record)
 }
 
+// BatchGenerate 批量生成某月工资单：为当月尚无工资单的在职员工生成 draft 工资单
+func (h *Salary) BatchGenerate(c *gin.Context) {
+	var req struct {
+		Month string `json:"month"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	result, err := h.service.BatchGenerate(req.Month)
+	if err != nil {
+		h.handleErr(c, err)
+		return
+	}
+	middleware.Record(h.db, c, "salary", "batch_generate", "", fmt.Sprintf("批量生成 %s 工资单 %d 张", req.Month, result.Generated))
+	response.OK(c, result)
+}
+
 // Update 更新工资单（仅 draft 状态可改，改后重算实发工资）
 func (h *Salary) Update(c *gin.Context) {
 	id, err := parseID(c)

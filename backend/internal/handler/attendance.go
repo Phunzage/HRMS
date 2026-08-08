@@ -31,7 +31,7 @@ func (h *Attendance) List(c *gin.Context) {
 	month := c.Query("month")
 	status := c.Query("status")
 	page, pageSize := response.Pagination(c)
-	items, total, err := h.service.List(employeeID, workDate, month, status, page, pageSize)
+	items, total, err := h.service.List(middleware.GetRoleCode(c), middleware.GetUserID(c), employeeID, workDate, month, status, page, pageSize)
 	if err != nil {
 		if errors.Is(err, service.ErrAttDateBad) {
 			response.Error(c, http.StatusBadRequest, 400, err.Error())
@@ -41,6 +41,22 @@ func (h *Attendance) List(c *gin.Context) {
 		return
 	}
 	response.PageOK(c, items, total, page, pageSize)
+}
+
+// Report 考勤月报：按员工汇总某月各考勤状态计数
+func (h *Attendance) Report(c *gin.Context) {
+	month := c.Query("month")
+	departmentID := parseUintQuery(c, "department_id")
+	report, err := h.service.Report(middleware.GetRoleCode(c), middleware.GetUserID(c), month, departmentID)
+	if err != nil {
+		if errors.Is(err, service.ErrAttMonthBad) {
+			response.Error(c, http.StatusBadRequest, 400, err.Error())
+			return
+		}
+		response.Error(c, http.StatusInternalServerError, 500, "获取考勤月报失败")
+		return
+	}
+	response.OK(c, report)
 }
 
 // CheckIn 打卡上班（员工自助）

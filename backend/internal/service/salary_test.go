@@ -26,7 +26,7 @@ func createSalaryEmployee(tx *gorm.DB) (*models.Employee, error) {
 
 // newSalarySvc 构造薪酬服务（基于事务内的仓库）
 func newSalarySvc(tx *gorm.DB) *SalaryService {
-	return NewSalaryService(repository.NewSalaryRepo(tx), repository.NewEmployeeRepo(tx))
+	return NewSalaryService(tx, repository.NewSalaryRepo(tx), repository.NewEmployeeRepo(tx))
 }
 
 // TestNetSalaryCalculation 实发工资计算：base + allowance + bonus - deduction

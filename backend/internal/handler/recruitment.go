@@ -29,7 +29,7 @@ func (h *Recruitment) JobList(c *gin.Context) {
 	status := c.Query("status")
 	keyword := c.Query("keyword")
 	page, pageSize := response.Pagination(c)
-	items, total, err := h.service.JobList(status, keyword, page, pageSize)
+	items, total, err := h.service.JobList(middleware.GetRoleCode(c), middleware.GetUserID(c), status, keyword, page, pageSize)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, 500, "获取招聘职位列表失败")
 		return

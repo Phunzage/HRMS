@@ -65,16 +65,18 @@ func (r *UserRepo) ResetLoginFailures(userID uint) error {
 		Updates(map[string]interface{}{"failed_login_count": 0, "locked_until": nil}).Error
 }
 
-// UserItem 用户列表项（附带角色名称）
+// UserItem 用户列表项（附带角色名称、数据范围部门名称）
 type UserItem struct {
 	models.User
-	RoleName string `json:"role_name"`
+	RoleName      string  `json:"role_name"`
+	DeptScopeName *string `json:"dept_scope_name"` // 数据范围部门名称，未绑定则为 null
 }
 
 // List 用户分页列表，支持 keyword（username/full_name）/ role_id / status 过滤；status<0 表示不过滤
 func (r *UserRepo) List(keyword string, roleID uint, status int, page, pageSize int) ([]UserItem, int64, error) {
 	q := r.db.Model(&models.User{}).
-		Joins("LEFT JOIN roles ON roles.id = users.role_id")
+		Joins("LEFT JOIN roles ON roles.id = users.role_id").
+		Joins("LEFT JOIN departments ds ON ds.id = users.dept_scope_id")
 	if keyword != "" {
 		kw := "%" + keyword + "%"
 		q = q.Where("users.username LIKE ? OR users.full_name LIKE ?", kw, kw)
@@ -90,7 +92,7 @@ func (r *UserRepo) List(keyword string, roleID uint, status int, page, pageSize 
 		return nil, 0, err
 	}
 	var items []UserItem
-	err := q.Select("users.*, roles.name AS role_name").
+	err := q.Select("users.*, roles.name AS role_name, ds.name AS dept_scope_name").
 		Order("users.id ASC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
 		Scan(&items).Error

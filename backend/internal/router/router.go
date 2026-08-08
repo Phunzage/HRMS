@@ -38,12 +38,12 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	posHandler := handler.NewPosition(posService, db)
 
 	empRepo := repository.NewEmployeeRepo(db)
-	empService := service.NewEmployeeService(empRepo, deptRepo, posRepo)
+	empService := service.NewEmployeeService(db, empRepo, deptRepo, posRepo)
 	empHandler := handler.NewEmployee(empService, db)
 
 	// 考勤模块
 	attendanceRepo := repository.NewAttendanceRepo(db)
-	attendanceService := service.NewAttendanceService(attendanceRepo, empRepo)
+	attendanceService := service.NewAttendanceService(db, attendanceRepo, empRepo)
 	attendanceHandler := handler.NewAttendance(attendanceService, db)
 
 	// 考勤补卡申请模块
@@ -58,17 +58,17 @@ func Register(r *gin.Engine, db *gorm.DB) {
 
 	// 请假审批流模块
 	leaveRepo := repository.NewLeaveRepo(db)
-	leaveService := service.NewLeaveService(leaveRepo, empRepo, notificationService)
+	leaveService := service.NewLeaveService(db, leaveRepo, empRepo, notificationService)
 	leaveHandler := handler.NewLeave(leaveService, db)
 
 	// 薪酬模块
 	salaryRepo := repository.NewSalaryRepo(db)
-	salaryService := service.NewSalaryService(salaryRepo, empRepo)
+	salaryService := service.NewSalaryService(db, salaryRepo, empRepo)
 	salaryHandler := handler.NewSalary(salaryService, db)
 
 	// 招聘模块
 	recruitmentRepo := repository.NewRecruitmentRepo(db)
-	recruitmentService := service.NewRecruitmentService(recruitmentRepo, deptRepo, posRepo)
+	recruitmentService := service.NewRecruitmentService(db, recruitmentRepo, deptRepo, posRepo)
 	recruitmentHandler := handler.NewRecruitment(recruitmentService, db)
 
 	// 统计仪表盘模块
@@ -144,6 +144,8 @@ func Register(r *gin.Engine, db *gorm.DB) {
 			attendance := authed.Group("/attendance")
 			{
 				attendance.GET("", middleware.RequirePermission(db, "attendance:read"), attendanceHandler.List)
+				// 考勤月报（静态段必须先于 :id 注册，否则 report 会被当作 id 捕获）
+				attendance.GET("/report", middleware.RequirePermission(db, "attendance:read"), attendanceHandler.Report)
 				attendance.POST("/check-in", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.CheckIn)
 				attendance.POST("/check-out", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.CheckOut)
 				attendance.POST("/manual", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.Manual)
@@ -191,6 +193,8 @@ func Register(r *gin.Engine, db *gorm.DB) {
 				salaries.GET("", middleware.RequirePermission(db, "salary:read"), salaryHandler.List)
 				salaries.GET("/export", middleware.RequirePermission(db, "salary:read"), salaryHandler.Export)
 				salaries.POST("", middleware.RequirePermission(db, "salary:write"), salaryHandler.Create)
+				// 批量生成须先于 /:id 注册，静态段优先匹配
+				salaries.POST("/batch-generate", middleware.RequirePermission(db, "salary:write"), salaryHandler.BatchGenerate)
 				salaries.PUT("/:id", middleware.RequirePermission(db, "salary:write"), salaryHandler.Update)
 				salaries.PUT("/:id/confirm", middleware.RequirePermission(db, "salary:write"), salaryHandler.Confirm)
 				salaries.PUT("/:id/pay", middleware.RequirePermission(db, "salary:write"), salaryHandler.Pay)

@@ -29,8 +29,8 @@ func NewRecruitmentRepo(db *gorm.DB) *RecruitmentRepo {
 	return &RecruitmentRepo{db: db}
 }
 
-// JobList 招聘职位分页列表，支持 status / keyword 过滤
-func (r *RecruitmentRepo) JobList(status, keyword string, page, pageSize int) ([]JobItem, int64, error) {
+// JobList 招聘职位分页列表，支持 status / keyword 过滤，deptIDs 为数据范围部门 ID（nil 不过滤）
+func (r *RecruitmentRepo) JobList(status, keyword string, deptIDs []uint, page, pageSize int) ([]JobItem, int64, error) {
 	q := r.db.Model(&models.JobOpening{}).
 		Joins("LEFT JOIN departments d ON d.id = job_openings.department_id").
 		Joins("LEFT JOIN positions p ON p.id = job_openings.position_id")
@@ -40,6 +40,9 @@ func (r *RecruitmentRepo) JobList(status, keyword string, page, pageSize int) ([
 	if keyword != "" {
 		kw := "%" + keyword + "%"
 		q = q.Where("job_openings.title LIKE ? OR d.name LIKE ?", kw, kw)
+	}
+	if len(deptIDs) > 0 {
+		q = q.Where("job_openings.department_id IN ?", deptIDs)
 	}
 	var total int64
 	if err := q.Count(&total).Error; err != nil {

@@ -69,7 +69,7 @@ func TestLeaveBalanceCheck(t *testing.T) {
 	tx := db.Begin()
 	defer tx.Rollback()
 	fx := setupLeaveFixture(t, tx)
-	svc := NewLeaveService(repository.NewLeaveRepo(tx), repository.NewEmployeeRepo(tx),
+	svc := NewLeaveService(tx, repository.NewLeaveRepo(tx), repository.NewEmployeeRepo(tx),
 		NewNotificationService(repository.NewNotificationRepo(tx), repository.NewEmployeeRepo(tx)))
 
 	// 超余额：年假默认额度 10，提交 11 天
@@ -101,7 +101,7 @@ func TestLeaveApproveDeductsBalance(t *testing.T) {
 	tx := db.Begin()
 	defer tx.Rollback()
 	fx := setupLeaveFixture(t, tx)
-	svc := NewLeaveService(repository.NewLeaveRepo(tx), repository.NewEmployeeRepo(tx),
+	svc := NewLeaveService(tx, repository.NewLeaveRepo(tx), repository.NewEmployeeRepo(tx),
 		NewNotificationService(repository.NewNotificationRepo(tx), repository.NewEmployeeRepo(tx)))
 
 	start, end := dateRange(3)
@@ -133,7 +133,7 @@ func TestLeaveApproveCreatesAttendance(t *testing.T) {
 	tx := db.Begin()
 	defer tx.Rollback()
 	fx := setupLeaveFixture(t, tx)
-	svc := NewLeaveService(repository.NewLeaveRepo(tx), repository.NewEmployeeRepo(tx),
+	svc := NewLeaveService(tx, repository.NewLeaveRepo(tx), repository.NewEmployeeRepo(tx),
 		NewNotificationService(repository.NewNotificationRepo(tx), repository.NewEmployeeRepo(tx)))
 
 	start, end := dateRange(2)
@@ -170,7 +170,7 @@ func TestLeaveApproveExistingAttendanceUpdated(t *testing.T) {
 	tx := db.Begin()
 	defer tx.Rollback()
 	fx := setupLeaveFixture(t, tx)
-	svc := NewLeaveService(repository.NewLeaveRepo(tx), repository.NewEmployeeRepo(tx),
+	svc := NewLeaveService(tx, repository.NewLeaveRepo(tx), repository.NewEmployeeRepo(tx),
 		NewNotificationService(repository.NewNotificationRepo(tx), repository.NewEmployeeRepo(tx)))
 
 	workDate := time.Now()
@@ -207,7 +207,7 @@ func TestLeaveApproveIdempotent(t *testing.T) {
 	tx := db.Begin()
 	defer tx.Rollback()
 	fx := setupLeaveFixture(t, tx)
-	svc := NewLeaveService(repository.NewLeaveRepo(tx), repository.NewEmployeeRepo(tx),
+	svc := NewLeaveService(tx, repository.NewLeaveRepo(tx), repository.NewEmployeeRepo(tx),
 		NewNotificationService(repository.NewNotificationRepo(tx), repository.NewEmployeeRepo(tx)))
 
 	start, end := dateRange(1)
@@ -231,7 +231,7 @@ func TestLeaveRejectNoDeduction(t *testing.T) {
 	tx := db.Begin()
 	defer tx.Rollback()
 	fx := setupLeaveFixture(t, tx)
-	svc := NewLeaveService(repository.NewLeaveRepo(tx), repository.NewEmployeeRepo(tx),
+	svc := NewLeaveService(tx, repository.NewLeaveRepo(tx), repository.NewEmployeeRepo(tx),
 		NewNotificationService(repository.NewNotificationRepo(tx), repository.NewEmployeeRepo(tx)))
 
 	start, end := dateRange(3)

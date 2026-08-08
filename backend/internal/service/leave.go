@@ -87,14 +87,15 @@ type MineResult struct {
 
 // LeaveService 请假业务服务
 type LeaveService struct {
+	db        *gorm.DB // 数据范围解析用（ResolveScope）
 	leaveRepo *repository.LeaveRepo
 	empRepo   *repository.EmployeeRepo
 	notif     *NotificationService
 }
 
 // NewLeaveService 创建请假服务
-func NewLeaveService(leaveRepo *repository.LeaveRepo, empRepo *repository.EmployeeRepo, notif *NotificationService) *LeaveService {
-	return &LeaveService{leaveRepo: leaveRepo, empRepo: empRepo, notif: notif}
+func NewLeaveService(db *gorm.DB, leaveRepo *repository.LeaveRepo, empRepo *repository.EmployeeRepo, notif *NotificationService) *LeaveService {
+	return &LeaveService{db: db, leaveRepo: leaveRepo, empRepo: empRepo, notif: notif}
 }
 
 // Create 提交请假申请：校验日期与余额，自动匹配部门负责人作为审批人
@@ -342,8 +343,15 @@ func (s *LeaveService) checkApprover(roleCode string, userID uint, leave *models
 // buildScope 按角色构建列表访问范围
 func (s *LeaveService) buildScope(roleCode string, userID uint) (repository.LeaveScope, error) {
 	switch roleCode {
-	case "admin", "hr":
+	case "admin":
 		return repository.LeaveScope{}, nil
+	case "hr":
+		// HR 数据范围：绑定负责部门则仅可见该部门及子部门，未绑定则全量
+		scopeDeptIDs, err := ResolveScope(s.db, userID, roleCode)
+		if err != nil {
+			return repository.LeaveScope{}, err
+		}
+		return repository.LeaveScope{DeptIDs: scopeDeptIDs}, nil
 	case "manager":
 		empID, err := s.requireEmployee(userID)
 		if err != nil {

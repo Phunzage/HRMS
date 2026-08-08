@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"strings"
 
@@ -29,12 +30,37 @@ type CreateUserRequest struct {
 	RoleID   uint   `json:"role_id" binding:"required"`
 }
 
+// OptionalUint 可区分「未传」与「显式 null」的可空 uint 字段。
+// 以值类型嵌入请求体：key 未出现时 Set=false；key 出现（含 null）时必然调用 UnmarshalJSON 置 Set=true，
+// Value 为 nil 表示显式置空，非 nil 表示指定值。标准 *uint 无法区分「未传」与「显式 null」（二者均为 nil）。
+type OptionalUint struct {
+	Set   bool
+	Value *uint
+}
+
+// UnmarshalJSON 实现 json.Unmarshaler：null 置 Set=true 且 Value=nil；数字解析为值
+func (o *OptionalUint) UnmarshalJSON(data []byte) error {
+	o.Set = true
+	if string(data) == "null" {
+		o.Value = nil
+		return nil
+	}
+	var v uint
+	if err := json.Unmarshal(data, &v); err != nil {
+		return err
+	}
+	o.Value = &v
+	return nil
+}
+
 // UpdateUserRequest 更新用户请求（指针字段区分「未传」与「置空」）
+// DeptScopeID 用 OptionalUint 区分三种状态：未传 / 显式 null 清空 / 指定部门 ID
 type UpdateUserRequest struct {
-	FullName *string `json:"full_name"`
-	Email    *string `json:"email"`
-	RoleID   *uint   `json:"role_id"`
-	Status   *int    `json:"status"`
+	FullName    *string      `json:"full_name"`
+	Email       *string      `json:"email"`
+	RoleID      *uint        `json:"role_id"`
+	Status      *int         `json:"status"`
+	DeptScopeID OptionalUint `json:"dept_scope_id"`
 }
 
 // UserService 用户管理服务
@@ -125,6 +151,14 @@ func (s *UserService) Update(id, currentUserID uint, req UpdateUserRequest) erro
 			return ErrCannotDisableSelf
 		}
 		fields["status"] = *req.Status
+	}
+	if req.DeptScopeID.Set {
+		if req.DeptScopeID.Value == nil {
+			// 显式传 null：清空数据范围（回退全量）
+			fields["dept_scope_id"] = nil
+		} else {
+			fields["dept_scope_id"] = *req.DeptScopeID.Value
+		}
 	}
 	if len(fields) == 0 {
 		return nil
