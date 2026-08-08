@@ -33,6 +33,8 @@
 | M20 | 仪表盘刷新+通用审批流引擎 | prompts/batch21_approval_engine.md | ✅ 完成 | 21:20 |
 | M21 | 补卡迁移+admin/hr职责分离 | prompts/batch22_correction_rbac.md | ✅ 完成 | 21:40 |
 | M22 | 统一待办中心+审批进度时间线 | prompts/batch23_approval_frontend.md | ✅ 完成 | 21:55 |
+| M23 | 仪表盘数据范围+HR池通知+角标接口 | prompts/batch24_dashboard_scope_notify_badges.md | ✅ 完成 | 23:05 |
+| M24 | 前端导航栏角标+公告已读联动 | prompts/batch25_badges_frontend.md | ✅ 完成 | 23:12 |
 
 ## 已确认的环境
 
@@ -80,6 +82,12 @@
 - 审批流：单级 → **通用审批流引擎**（固定两级：部门经理→HR终审），请假/补卡统一走引擎，通知与审批人一致，进度可追踪
 - 权限：admin/hr 职责分离（admin=系统配置+业务只读，hr=人事业务读写）
 - 修复：误跳登录、黑屏、乱码、仪表盘不刷新共 4 个体验 bug
+
+## 四轮增强完成情况
+
+- **仪表盘数据范围**：hr 仪表盘统计接入 ResolveScope（在招职位/员工/考勤/工资/趋势按负责部门过滤），与列表口径一致（hr 见 3 个岗位、admin 见全局 4 个）
+- **HR 池通知修复**：审批引擎 HR 终审步骤原来不发通知（approver_id=nil 直接跳过）→ 改为广播所有 HR 用户，hr 账号现在能收到请假/补卡终审待办通知
+- **导航栏角标**：GET /badges 汇总接口（pending_approvals / unread_announcements / unread_notifications），前端 30s+聚焦统一轮询；「我的审批」显示待办数角标、「公告管理」显示未读公告数角标、顶栏铃铛显示通知未读数；公告已读机制（单条/全部已读，列表带 is_read），进入公告页自动全部已读并清零角标
 
 ## 二轮增强完成情况
 
