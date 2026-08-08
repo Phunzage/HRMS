@@ -13,7 +13,7 @@ type Attendance struct {
 	WorkDate   time.Time      `gorm:"type:date;index:idx_emp_work_date,unique;not null" json:"work_date"` // 工作日（只存日期）
 	CheckIn    *time.Time     `json:"check_in"`                                                           // 上班打卡时间
 	CheckOut   *time.Time     `json:"check_out"`                                                          // 下班打卡时间
-	Status     string         `gorm:"size:32;default:normal;not null" json:"status"`                      // normal/late/early_leave/absent
+	Status     string         `gorm:"size:32;default:normal;not null" json:"status"`                      // normal/late/early_leave/absent/leave
 	Remark     string         `gorm:"size:255" json:"remark"`                                             // 备注
 	CreatedAt  time.Time      `json:"created_at"`
 	UpdatedAt  time.Time      `json:"updated_at"`

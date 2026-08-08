@@ -68,6 +68,16 @@ func (r *EmployeeRepo) List(keyword string, departmentID uint, status int, posit
 	return items, total, nil
 }
 
+// ExportAll 导出全部匹配员工（不分页），支持与列表相同的过滤参数
+func (r *EmployeeRepo) ExportAll(keyword string, departmentID uint, status int, positionID uint) ([]EmployeeItem, error) {
+	var items []EmployeeItem
+	err := r.employeeQuery(keyword, departmentID, status, positionID).
+		Select("employees.*, d.name AS department_name, p.name AS position_name").
+		Order("employees.id ASC").
+		Scan(&items).Error
+	return items, err
+}
+
 // GetByIDWithNames 查询员工详情（含部门/岗位名称）
 func (r *EmployeeRepo) GetByIDWithNames(id uint) (*EmployeeItem, error) {
 	var item EmployeeItem

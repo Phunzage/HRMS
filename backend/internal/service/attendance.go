@@ -27,8 +27,10 @@ var (
 )
 
 // 考勤状态集合
+// leave 表示请假（审批通过的请假区间联动标记），视为「正常出勤」之外的请假日；
+// 手工补录与更新也可显式设置 leave（用于历史补录请假情形）
 var validAttendanceStatus = map[string]bool{
-	"normal": true, "late": true, "early_leave": true, "absent": true,
+	"normal": true, "late": true, "early_leave": true, "absent": true, "leave": true,
 }
 
 // ManualAttendanceRequest HR 手工补录请求

@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"math"
 	"regexp"
 
@@ -66,6 +67,55 @@ func (s *SalaryService) List(roleCode string, userID uint, month string, employe
 		employeeID = empID
 	}
 	return s.salaryRepo.List(employeeID, month, status, departmentID, page, pageSize)
+}
+
+// ExportRows 导出工资表数据行（含表头与状态中文映射），导出全部匹配不分页；
+// employee 角色仅导出本人工资单，与列表接口范围一致
+func (s *SalaryService) ExportRows(roleCode string, userID uint, month, status string, departmentID uint) ([]string, [][]interface{}, error) {
+	headers := []string{"月份", "工号", "姓名", "部门", "基本工资", "津贴", "奖金", "扣款", "实发", "状态"}
+	employeeID := uint(0)
+	if roleCode == "employee" {
+		empID, err := s.requireEmployee(userID)
+		if err != nil {
+			return nil, nil, err
+		}
+		employeeID = empID
+		departmentID = 0
+	}
+	items, err := s.salaryRepo.ExportAll(employeeID, month, status, departmentID)
+	if err != nil {
+		return nil, nil, err
+	}
+	rows := make([][]interface{}, 0, len(items))
+	for _, it := range items {
+		rows = append(rows, []interface{}{
+			it.Month,
+			it.EmpNo,
+			it.EmployeeName,
+			it.DepartmentName,
+			fmt.Sprintf("%.2f", it.BaseSalary),
+			fmt.Sprintf("%.2f", it.Allowance),
+			fmt.Sprintf("%.2f", it.Bonus),
+			fmt.Sprintf("%.2f", it.Deduction),
+			fmt.Sprintf("%.2f", it.NetSalary),
+			salaryStatusName(it.Status),
+		})
+	}
+	return headers, rows, nil
+}
+
+// salaryStatusName 工资单状态中文映射：draft草稿 / confirmed已确认 / paid已发放
+func salaryStatusName(status string) string {
+	switch status {
+	case "draft":
+		return "草稿"
+	case "confirmed":
+		return "已确认"
+	case "paid":
+		return "已发放"
+	default:
+		return status
+	}
 }
 
 // Mine 当前用户自己的工资单列表（登录即可）

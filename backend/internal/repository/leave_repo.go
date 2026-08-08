@@ -121,21 +121,26 @@ func (r *LeaveRepo) Create(leave *models.LeaveRequest) error {
 	return r.db.Create(leave).Error
 }
 
-// CreateAutoApproved 无审批人时直接审批通过：创建申请 + 扣减余额（事务原子）
+// CreateAutoApproved 无审批人时直接审批通过：创建申请 + 扣减余额 + 请假区间考勤联动（事务原子）
+// 同样视为一次 approve，需一并标记请假区间考勤为 leave
 func (r *LeaveRepo) CreateAutoApproved(leave *models.LeaveRequest, year int, totalDays float64) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Create(leave).Error; err != nil {
 			return err
 		}
-		return r.addUsedDays(tx, leave.EmployeeID, leave.LeaveType, year, leave.Days, totalDays)
+		if err := r.addUsedDays(tx, leave.EmployeeID, leave.LeaveType, year, leave.Days, totalDays); err != nil {
+			return err
+		}
+		attRepo := NewAttendanceRepo(tx)
+		return attRepo.MarkLeaveRange(leave.EmployeeID, leave.StartDate, leave.EndDate)
 	})
 }
 
-// ApproveAndDeduct 审批通过：更新状态 + 扣减余额（事务原子）
+// ApproveAndDeduct 审批通过：更新状态 + 扣减余额 + 请假区间考勤联动标记 leave（事务原子，任一环节失败整体回滚）
 func (r *LeaveRepo) ApproveAndDeduct(leaveID uint, year int, totalDays float64) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {
 		var lr models.LeaveRequest
-		if err := tx.Select("id", "employee_id", "leave_type", "days").
+		if err := tx.Select("id", "employee_id", "leave_type", "days", "start_date", "end_date").
 			First(&lr, leaveID).Error; err != nil {
 			return err
 		}
@@ -148,7 +153,12 @@ func (r *LeaveRepo) ApproveAndDeduct(leaveID uint, year int, totalDays float64) 
 		if res.RowsAffected == 0 {
 			return ErrLeaveNotPending
 		}
-		return r.addUsedDays(tx, lr.EmployeeID, lr.LeaveType, year, lr.Days, totalDays)
+		if err := r.addUsedDays(tx, lr.EmployeeID, lr.LeaveType, year, lr.Days, totalDays); err != nil {
+			return err
+		}
+		// 请假区间内的每一天标记为 leave（无记录则新建，已有则覆盖状态保留打卡）
+		attRepo := NewAttendanceRepo(tx)
+		return attRepo.MarkLeaveRange(lr.EmployeeID, lr.StartDate, lr.EndDate)
 	})
 }
 

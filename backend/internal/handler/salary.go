@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -37,6 +38,25 @@ func (h *Salary) List(c *gin.Context) {
 		return
 	}
 	response.PageOK(c, items, total, page, pageSize)
+}
+
+// Export 导出工资表 Excel（附件下载，不走统一 JSON 响应）
+func (h *Salary) Export(c *gin.Context) {
+	month := c.Query("month")
+	status := c.Query("status")
+	departmentID := parseUintQuery(c, "department_id")
+	headers, rows, err := h.service.ExportRows(middleware.GetRoleCode(c), middleware.GetUserID(c), month, status, departmentID)
+	if err != nil {
+		h.handleErr(c, err)
+		return
+	}
+	filename := fmt.Sprintf("salaries_%s.xlsx", time.Now().Format("20060102_1504"))
+	data, err := service.WriteExcel(filename, "工资表", headers, rows)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 500, "生成 Excel 文件失败")
+		return
+	}
+	writeXLSX(c, filename, data)
 }
 
 // Create 创建工资单

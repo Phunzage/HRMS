@@ -84,6 +84,61 @@ func (s *EmployeeService) List(keyword string, departmentID uint, status int, po
 	return s.empRepo.List(keyword, departmentID, status, positionID, page, pageSize)
 }
 
+// ExportRows 导出员工花名册数据行（含表头与性别/状态中文映射），导出全部匹配不分页
+func (s *EmployeeService) ExportRows(keyword string, departmentID uint, status int, positionID uint) ([]string, [][]interface{}, error) {
+	headers := []string{"工号", "姓名", "性别", "部门", "岗位", "手机", "邮箱", "入职日期", "状态", "备注"}
+	items, err := s.empRepo.ExportAll(keyword, departmentID, status, positionID)
+	if err != nil {
+		return nil, nil, err
+	}
+	rows := make([][]interface{}, 0, len(items))
+	for _, it := range items {
+		hireDate := ""
+		if it.HireDate != nil {
+			hireDate = it.HireDate.Format("2006-01-02")
+		}
+		rows = append(rows, []interface{}{
+			it.EmpNo,
+			it.Name,
+			genderName(it.Gender),
+			it.DepartmentName,
+			it.PositionName,
+			it.Phone,
+			it.Email,
+			hireDate,
+			empStatusName(it.Status),
+			it.Remark,
+		})
+	}
+	return headers, rows, nil
+}
+
+// genderName 性别枚举中文映射：1男 / 2女 / 3其他
+func genderName(gender int) string {
+	switch gender {
+	case 1:
+		return "男"
+	case 2:
+		return "女"
+	default:
+		return "其他"
+	}
+}
+
+// empStatusName 员工状态中文映射：1在职 / 2离职 / 3试用
+func empStatusName(status int) string {
+	switch status {
+	case 1:
+		return "在职"
+	case 2:
+		return "离职"
+	case 3:
+		return "试用"
+	default:
+		return "未知"
+	}
+}
+
 // GetByID 员工详情（含部门/岗位名称）
 func (s *EmployeeService) GetByID(id uint) (*repository.EmployeeItem, error) {
 	item, err := s.empRepo.GetByIDWithNames(id)

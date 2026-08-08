@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"gorm.io/gorm"
@@ -59,7 +60,27 @@ func (h *Employee) Get(c *gin.Context) {
 	response.OK(c, emp)
 }
 
-// Me 当前登录用户关联的员工档案（JWT 保护即可，无需额外权限）
+// Export 导出员工花名册 Excel（附件下载，不走统一 JSON 响应）
+func (h *Employee) Export(c *gin.Context) {
+	keyword := c.Query("keyword")
+	departmentID := parseUintQuery(c, "department_id")
+	status := parseUintQuery(c, "status")
+	positionID := parseUintQuery(c, "position_id")
+	headers, rows, err := h.service.ExportRows(keyword, departmentID, int(status), positionID)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 500, "导出员工花名册失败")
+		return
+	}
+	filename := fmt.Sprintf("employees_%s.xlsx", time.Now().Format("20060102_1504"))
+	data, err := service.WriteExcel(filename, "员工花名册", headers, rows)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 500, "生成 Excel 文件失败")
+		return
+	}
+	writeXLSX(c, filename, data)
+}
+
+// Me 当前用户关联的员工档案（JWT 保护即可，无需额外权限）
 func (h *Employee) Me(c *gin.Context) {
 	emp, err := h.service.GetMyProfile(middleware.GetUserID(c))
 	if err != nil {

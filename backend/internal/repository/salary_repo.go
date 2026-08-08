@@ -15,11 +15,12 @@ var (
 	ErrSalaryNotConfirmed  = errors.New("仅 confirmed 状态的工资单可发放")
 )
 
-// SalaryItem 工资单列表项（附带员工姓名、部门名称）
+// SalaryItem 工资单列表项（附带员工姓名、部门名称、工号）
 type SalaryItem struct {
 	models.SalaryRecord
 	EmployeeName   string `json:"employee_name"`
 	DepartmentName string `json:"department_name"`
+	EmpNo          string `json:"emp_no"`
 }
 
 // SalaryRepo 工资数据仓库
@@ -60,7 +61,7 @@ func (r *SalaryRepo) List(employeeID uint, month, status string, departmentID ui
 	}
 	var items []SalaryItem
 	err := r.salaryQuery(employeeID, month, status, departmentID).
-		Select("salary_records.*, e.name AS employee_name, d.name AS department_name").
+		Select("salary_records.*, e.name AS employee_name, d.name AS department_name, e.emp_no AS emp_no").
 		Order("salary_records.id DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
 		Scan(&items).Error
@@ -68,6 +69,16 @@ func (r *SalaryRepo) List(employeeID uint, month, status string, departmentID ui
 		return nil, 0, err
 	}
 	return items, total, nil
+}
+
+// ExportAll 导出全部匹配工资单（不分页），支持 month / status / department_id / employee_id 过滤
+func (r *SalaryRepo) ExportAll(employeeID uint, month, status string, departmentID uint) ([]SalaryItem, error) {
+	var items []SalaryItem
+	err := r.salaryQuery(employeeID, month, status, departmentID).
+		Select("salary_records.*, e.name AS employee_name, d.name AS department_name, e.emp_no AS emp_no").
+		Order("salary_records.month DESC, salary_records.employee_id ASC").
+		Scan(&items).Error
+	return items, err
 }
 
 // ListByEmployee 某员工的工资单列表（/mine 使用）

@@ -66,6 +66,8 @@ func (r *DashboardRepo) CountMonthResigned(monthStart time.Time) (int64, error) 
 }
 
 // MonthAttendanceRate 本月出勤率 = 正常出勤人次 / 总考勤人次
+// 注意：批次 11 起考勤新增 leave 状态（请假联动标记），此处统计口径维持原逻辑不变，
+// leave 不计入「正常出勤」，作为请假日参与总数分母即可，无需单独剔除。
 func (r *DashboardRepo) MonthAttendanceRate(monthStart, nextMonthStart time.Time) (float64, error) {
 	base := r.db.Model(&models.Attendance{}).
 		Where("work_date >= ? AND work_date < ?", monthStart, nextMonthStart)

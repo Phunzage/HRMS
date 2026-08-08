@@ -113,6 +113,8 @@ func Register(r *gin.Engine, db *gorm.DB) {
 				employees.GET("/me", empHandler.Me)
 				employees.GET("", middleware.RequirePermission(db, "employee:read"), empHandler.List)
 				employees.POST("", middleware.RequirePermission(db, "employee:write"), empHandler.Create)
+				// 导出须先于 :id 注册，否则 "export" 会被当作 id 匹配详情路由
+				employees.GET("/export", middleware.RequirePermission(db, "employee:read"), empHandler.Export)
 				employees.GET("/:id", middleware.RequirePermission(db, "employee:read"), empHandler.Get)
 				employees.PUT("/:id", middleware.RequirePermission(db, "employee:write"), empHandler.Update)
 				employees.DELETE("/:id", middleware.RequirePermission(db, "employee:write"), empHandler.Delete)
@@ -148,6 +150,7 @@ func Register(r *gin.Engine, db *gorm.DB) {
 				// 自助接口：员工查看自己的工资单（仅需登录）
 				salaries.GET("/mine", salaryHandler.Mine)
 				salaries.GET("", middleware.RequirePermission(db, "salary:read"), salaryHandler.List)
+				salaries.GET("/export", middleware.RequirePermission(db, "salary:read"), salaryHandler.Export)
 				salaries.POST("", middleware.RequirePermission(db, "salary:write"), salaryHandler.Create)
 				salaries.PUT("/:id", middleware.RequirePermission(db, "salary:write"), salaryHandler.Update)
 				salaries.PUT("/:id/confirm", middleware.RequirePermission(db, "salary:write"), salaryHandler.Confirm)
