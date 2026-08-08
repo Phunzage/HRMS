@@ -38,5 +38,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.AuditLog{},
 		&models.Notification{},
 		&models.AttendanceCorrection{},
+		&models.Announcement{},
+		&models.PerformanceReview{},
 	)
 }

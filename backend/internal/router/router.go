@@ -71,6 +71,16 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	recruitmentService := service.NewRecruitmentService(db, recruitmentRepo, deptRepo, posRepo)
 	recruitmentHandler := handler.NewRecruitment(recruitmentService, db)
 
+	// 公告管理模块
+	announcementRepo := repository.NewAnnouncementRepo(db)
+	announcementService := service.NewAnnouncementService(announcementRepo)
+	announcementHandler := handler.NewAnnouncement(announcementService, db)
+
+	// 绩效管理模块
+	performanceRepo := repository.NewPerformanceRepo(db)
+	performanceService := service.NewPerformanceService(db, performanceRepo, empRepo)
+	performanceHandler := handler.NewPerformance(performanceService, db)
+
 	// 统计仪表盘模块
 	dashboardRepo := repository.NewDashboardRepo(db)
 	dashboardService := service.NewDashboardService(dashboardRepo)
@@ -217,6 +227,28 @@ func Register(r *gin.Engine, db *gorm.DB) {
 					candidates.PUT("/:id", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.CandidateUpdate)
 					candidates.DELETE("/:id", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.CandidateDelete)
 				}
+			}
+
+			// 公告管理
+			announcements := authed.Group("/announcements")
+			{
+				announcements.GET("", middleware.RequirePermission(db, "announcement:read"), announcementHandler.List)
+				announcements.POST("", middleware.RequirePermission(db, "announcement:write"), announcementHandler.Create)
+				announcements.PUT("/:id", middleware.RequirePermission(db, "announcement:write"), announcementHandler.Update)
+				announcements.DELETE("/:id", middleware.RequirePermission(db, "announcement:write"), announcementHandler.Delete)
+			}
+
+			// 绩效管理
+			performance := authed.Group("/performance")
+			{
+				// 自助接口：查看自己的绩效（仅需登录，静态段优先于 :id 匹配）
+				performance.GET("/mine", performanceHandler.Mine)
+				performance.GET("", middleware.RequirePermission(db, "performance:read"), performanceHandler.List)
+				performance.POST("", middleware.RequirePermission(db, "performance:write"), performanceHandler.Create)
+				performance.PUT("/:id/submit", middleware.RequirePermission(db, "performance:write"), performanceHandler.Submit)
+				performance.PUT("/:id/approve", middleware.RequirePermission(db, "performance:write"), performanceHandler.Approve)
+				performance.PUT("/:id", middleware.RequirePermission(db, "performance:write"), performanceHandler.Update)
+				performance.DELETE("/:id", middleware.RequirePermission(db, "performance:write"), performanceHandler.Delete)
 			}
 
 			// 用户管理

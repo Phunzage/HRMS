@@ -84,6 +84,10 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "角色查看", Code: "role:read", Module: "role"},
 		{Name: "角色编辑", Code: "role:write", Module: "role"},
 		{Name: "审计日志查看", Code: "audit:read", Module: "audit"},
+		{Name: "公告查看", Code: "announcement:read", Module: "announcement"},
+		{Name: "公告编辑", Code: "announcement:write", Module: "announcement"},
+		{Name: "绩效查看", Code: "performance:read", Module: "performance"},
+		{Name: "绩效编辑", Code: "performance:write", Module: "performance"},
 	}
 	for _, p := range permissions {
 		var existing models.Permission
@@ -116,12 +120,16 @@ func seedRolePermissions(db *gorm.DB) error {
 			"user:read", "user:write",
 			"role:read",
 			"audit:read",
+			"announcement:read", "announcement:write",
+			"performance:read", "performance:write",
 		},
 		"manager": {
 			"employee:read",
 			"attendance:read", "attendance:write",
 			"leave:read", "leave:write",
 			"department:read",
+			"announcement:read",
+			"performance:read", "performance:write",
 		},
 		// employee 角色无 employee:read：普通员工的员工档案只能通过 GET /employees/me 访问本人
 		// attendance:write 用于员工自助打卡（check-in/check-out）
@@ -129,6 +137,8 @@ func seedRolePermissions(db *gorm.DB) error {
 			"attendance:read", "attendance:write",
 			"leave:read", "leave:write",
 			"salary:read",
+			"announcement:read",
+			"performance:read",
 		},
 	}
 	for roleCode, codes := range rolePerms {
