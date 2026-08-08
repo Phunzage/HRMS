@@ -107,18 +107,18 @@ export default function UsersPage() {
     }
   }, [keyword, roleId, status, page, reloadKey])
 
-  // 角色下拉数据（admin/hr 均需，列表展示角色名）
+  // 角色下拉数据（admin/hr 均需，列表展示角色名）；加载失败时静默降级为空数组
   useEffect(() => {
     listRoles()
       .then(setRoles)
-      .catch(() => toast.error('加载角色列表失败'))
+      .catch(() => setRoles([]))
   }, [])
 
-  // 负责部门下拉数据（部门树扁平化，供 hr 数据范围选择）
+  // 负责部门下拉数据（部门树扁平化，供 hr 数据范围选择）；加载失败时静默降级为空数组
   useEffect(() => {
     fetchDepartments()
       .then((tree) => setDeptOptions(flattenDepartments(tree)))
-      .catch(() => toast.error('加载部门列表失败'))
+      .catch(() => setDeptOptions([]))
   }, [])
 
   const reload = () => setReloadKey((k) => k + 1)

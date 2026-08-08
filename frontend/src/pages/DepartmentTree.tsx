@@ -133,7 +133,7 @@ export default function DepartmentTree() {
     }
   }, [reloadKey])
 
-  // 加载员工列表（负责人下拉 + 名称映射）
+  // 加载员工列表（负责人下拉 + 名称映射）；非关键下拉加载失败时静默降级为空数组
   useEffect(() => {
     fetchAllEmployees()
       .then((res) => {
@@ -144,7 +144,7 @@ export default function DepartmentTree() {
         }
         setManagerMap(map)
       })
-      .catch(() => toast.error('加载员工列表失败'))
+      .catch(() => setEmployees([]))
   }, [])
 
   const reload = () => setReloadKey((k) => k + 1)

@@ -109,14 +109,14 @@ export default function EmployeeList() {
     }
   }, [keyword, departmentId, status, page, reloadKey])
 
-  // 加载下拉数据（部门树 + 岗位列表）
+  // 加载下拉数据（部门树 + 岗位列表）；非关键下拉加载失败时静默降级为空数组，避免影响主列表
   useEffect(() => {
     fetchDepartments()
       .then((tree: Department[]) => setDeptOptions(flattenDepartments(tree)))
-      .catch((err: unknown) => toast.error(err instanceof Error ? err.message : '加载部门失败'))
+      .catch(() => setDeptOptions([]))
     fetchAllPositions()
       .then((res) => setPositions(res.list))
-      .catch((err: unknown) => toast.error(err instanceof Error ? err.message : '加载岗位失败'))
+      .catch(() => setPositions([]))
   }, [])
 
   // 当前部门可选的岗位

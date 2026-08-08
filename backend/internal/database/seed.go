@@ -125,6 +125,8 @@ func seedRolePermissions(db *gorm.DB) error {
 		},
 		"manager": {
 			"employee:read",
+			// position:read：经理查看本部门岗位、员工管理页岗位筛选需要（工资/招聘仍为 hr/admin 专属）
+			"position:read",
 			"attendance:read", "attendance:write",
 			"leave:read", "leave:write",
 			"department:read",

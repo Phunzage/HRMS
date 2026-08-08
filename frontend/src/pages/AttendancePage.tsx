@@ -100,12 +100,12 @@ export default function AttendancePage() {
     }
   }, [month, employeeId, status, page, reloadKey])
 
-  // 加载员工下拉（admin/hr）
+  // 加载员工下拉（admin/hr）；非关键筛选下拉加载失败时静默降级为空数组
   useEffect(() => {
     if (!canManage) return
     fetchAllEmployees()
       .then((res) => setEmployees(res.list))
-      .catch(() => toast.error('加载员工列表失败'))
+      .catch(() => setEmployees([]))
   }, [canManage])
 
   const reload = () => setReloadKey((k) => k + 1)

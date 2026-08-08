@@ -109,17 +109,17 @@ export default function RecruitmentPage() {
 
   const [saving, setSaving] = useState(false)
 
-  // 加载下拉数据
+  // 加载下拉数据；非关键下拉加载失败时静默降级为空数组
   useEffect(() => {
     fetchDepartments()
       .then((tree: Department[]) => setDeptOptions(flattenDepartments(tree)))
-      .catch(() => toast.error('加载部门失败'))
+      .catch(() => setDeptOptions([]))
     fetchAllPositions()
       .then((res) => setPositions(res.list))
-      .catch(() => toast.error('加载岗位失败'))
+      .catch(() => setPositions([]))
     fetchAllJobs()
       .then((res) => setJobOptions(res.list))
-      .catch(() => toast.error('加载招聘职位失败'))
+      .catch(() => setJobOptions([]))
   }, [])
 
   // 职位列表

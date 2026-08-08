@@ -81,9 +81,10 @@ export default function PositionPage() {
   }, [keyword, departmentId, page, reloadKey])
 
   useEffect(() => {
+    // 非关键下拉：部门加载失败时静默降级为空数组
     fetchDepartments()
       .then((tree: Department[]) => setDeptOptions(flattenDepartments(tree)))
-      .catch(() => toast.error('加载部门失败'))
+      .catch(() => setDeptOptions([]))
   }, [])
 
   const reload = () => setReloadKey((k) => k + 1)

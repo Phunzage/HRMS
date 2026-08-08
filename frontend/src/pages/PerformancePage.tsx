@@ -102,9 +102,10 @@ export default function PerformancePage() {
 
   useEffect(() => {
     if (!canOperate) return
+    // 非关键筛选下拉：员工列表加载失败时静默降级为空数组
     fetchAllEmployees()
       .then((res) => setEmployees(res.list))
-      .catch(() => toast.error('加载员工列表失败'))
+      .catch(() => setEmployees([]))
   }, [canOperate])
 
   const reload = () => setReloadKey((k) => k + 1)

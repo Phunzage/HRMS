@@ -76,9 +76,14 @@ client.interceptors.response.use(
       }
     }
 
-    useAuthStore.getState().logout()
-    if (window.location.pathname !== '/login') {
-      window.location.href = '/login'
+    // 仅 401（含刷新失败/无 refresh_token）才清空登录态并跳登录页；
+    // 其他 HTTP 错误（400/403/404/500 等）不登出不跳转，仅把错误抛给调用方，
+    // 由页面自身的 catch/toast 处理，避免误登出
+    if (status === 401) {
+      useAuthStore.getState().logout()
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login'
+      }
     }
     const msg = error.response?.data?.message || error.message || '网络错误'
     return Promise.reject(new Error(msg))
