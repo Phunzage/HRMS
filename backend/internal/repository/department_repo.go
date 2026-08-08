@@ -18,7 +18,7 @@ func NewDepartmentRepo(db *gorm.DB) *DepartmentRepo {
 
 // FindAll 查询全部部门（软删除自动过滤，按 sort_order、id 排序）
 func (r *DepartmentRepo) FindAll() ([]models.Department, error) {
-	var depts []models.Department
+	depts := make([]models.Department, 0)
 	if err := r.db.Order("sort_order ASC, id ASC").Find(&depts).Error; err != nil {
 		return nil, err
 	}

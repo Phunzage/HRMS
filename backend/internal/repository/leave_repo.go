@@ -75,7 +75,7 @@ func (r *LeaveRepo) List(scope LeaveScope, status string, employeeID uint, page,
 	if err := r.leaveQuery(scope, status, employeeID).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []LeaveItem
+	items := make([]LeaveItem, 0)
 	err := r.leaveQuery(scope, status, employeeID).
 		Select("leave_requests.*, e.name AS employee_name, d.name AS department_name").
 		Order("leave_requests.id DESC").
@@ -100,7 +100,7 @@ func (r *LeaveRepo) ListByEmployee(employeeID uint, status string, page, pageSiz
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []LeaveItem
+	items := make([]LeaveItem, 0)
 	err := q.Select("leave_requests.*, e.name AS employee_name, d.name AS department_name").
 		Order("leave_requests.id DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
@@ -210,16 +210,16 @@ func (r *LeaveRepo) GetBalance(employeeID uint, leaveType string, year int) (*mo
 
 // GetBalanceList 查询某员工某年的全部余额记录
 func (r *LeaveRepo) GetBalanceList(employeeID uint, year int) ([]models.LeaveBalance, error) {
-	var list []models.LeaveBalance
+	list := make([]models.LeaveBalance, 0)
 	err := r.db.Where("employee_id = ? AND year = ?", employeeID, year).Find(&list).Error
 	return list, err
 }
 
 // FindManagerEmployeeID 查找员工所属部门负责人（部门 ManagerID 对应的员工ID），无负责人返回 nil
 func (r *LeaveRepo) FindManagerEmployeeID(employeeID uint) (*uint, error) {
-	var rows []struct {
+	rows := make([]struct {
 		ManagerID *uint
-	}
+	}, 0)
 	err := r.db.Model(&models.Employee{}).
 		Select("d.manager_id").
 		Joins("JOIN departments d ON d.id = employees.department_id").

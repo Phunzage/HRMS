@@ -110,7 +110,7 @@ export default function UsersPage() {
   // 角色下拉数据（admin/hr 均需，列表展示角色名）；加载失败时静默降级为空数组
   useEffect(() => {
     listRoles()
-      .then(setRoles)
+      .then((res) => setRoles(res ?? []))
       .catch(() => setRoles([]))
   }, [])
 

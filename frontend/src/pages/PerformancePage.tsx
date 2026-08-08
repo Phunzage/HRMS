@@ -104,7 +104,7 @@ export default function PerformancePage() {
     if (!canOperate) return
     // 非关键筛选下拉：员工列表加载失败时静默降级为空数组
     fetchAllEmployees()
-      .then((res) => setEmployees(res.list))
+      .then((res) => setEmployees(res.list ?? []))
       .catch(() => setEmployees([]))
   }, [canOperate])
 

@@ -16,10 +16,12 @@ interface BarChartProps {
 }
 
 export default function BarChart({ items, color, formatValue, height = 28 }: BarChartProps) {
-  const max = Math.max(...items.map((i) => i.value), 1)
+  // 兜底：items 为 null/undefined 时按空数组渲染
+  const data = items ?? []
+  const max = Math.max(...data.map((i) => i.value), 1)
   return (
     <div className="flex items-end gap-2">
-      {items.map((it) => (
+      {data.map((it) => (
         <div key={it.label} className="flex min-w-0 flex-1 flex-col items-center gap-1">
           <div className="truncate text-xs text-base-content/70">
             {formatValue ? formatValue(it.value) : String(it.value)}

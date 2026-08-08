@@ -80,7 +80,7 @@ func (r *PerformanceRepo) List(scope PerformanceScope, period, status string, em
 	if err := r.performanceQuery(scope, period, status, employeeID, departmentID).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []PerformanceItem
+	items := make([]PerformanceItem, 0)
 	err := r.performanceQuery(scope, period, status, employeeID, departmentID).
 		Select("performance_reviews.*, e.name AS employee_name, d.name AS department_name, e.emp_no AS emp_no, rv.name AS reviewer_name").
 		Order("performance_reviews.id DESC").
@@ -103,7 +103,7 @@ func (r *PerformanceRepo) ListByEmployee(employeeID uint, page, pageSize int) ([
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []PerformanceItem
+	items := make([]PerformanceItem, 0)
 	err := q.Select("performance_reviews.*, e.name AS employee_name, d.name AS department_name, e.emp_no AS emp_no, rv.name AS reviewer_name").
 		Order("performance_reviews.period DESC, performance_reviews.id DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).

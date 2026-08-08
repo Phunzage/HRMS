@@ -96,7 +96,7 @@ export default function MainLayout() {
   useEffect(() => {
     if (!notifOpen) return
     listNotifications({ page: 1, page_size: 10 })
-      .then((res) => setNotifications(res.list))
+      .then((res) => setNotifications(res.list ?? []))
       .catch(() => undefined)
     fetchUnreadCount()
       .then((res) => setUnreadCount(res.count))

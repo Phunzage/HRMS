@@ -91,7 +91,7 @@ export default function RolesPage() {
     setError('')
     listRoles()
       .then((res) => {
-        if (!cancelled) setRoles(res)
+        if (!cancelled) setRoles(res ?? [])
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : '获取角色列表失败')

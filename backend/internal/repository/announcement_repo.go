@@ -35,7 +35,7 @@ func (r *AnnouncementRepo) List(keyword, status string, page, pageSize int) ([]m
 	if err := r.announcementQuery(keyword, status).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []models.Announcement
+	items := make([]models.Announcement, 0)
 	err := r.announcementQuery(keyword, status).
 		Order("CASE WHEN status = 'published' THEN 0 ELSE 1 END").
 		Order("is_pinned DESC").

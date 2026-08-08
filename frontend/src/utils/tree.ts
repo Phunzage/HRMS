@@ -8,9 +8,11 @@ export interface DeptOption {
 }
 
 // 递归展开部门树，level 用于缩进展示
-export function flattenDepartments(tree: Department[], level = 0): DeptOption[] {
+export function flattenDepartments(tree: Department[] = [], level = 0): DeptOption[] {
+  // 兜底：后端空结果返回 null 时按空数组处理
+  const list = tree ?? []
   const result: DeptOption[] = []
-  for (const d of tree) {
+  for (const d of list) {
     result.push({ id: d.id, name: d.name, level })
     if (d.children && d.children.length > 0) {
       result.push(...flattenDepartments(d.children, level + 1))

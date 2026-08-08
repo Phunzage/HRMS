@@ -40,7 +40,7 @@ func (r *NotificationRepo) List(userID uint, isRead *bool, page, pageSize int) (
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []models.Notification
+	items := make([]models.Notification, 0)
 	err := q.Order("id DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
 		Find(&items).Error

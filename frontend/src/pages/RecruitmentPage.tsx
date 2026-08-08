@@ -115,10 +115,10 @@ export default function RecruitmentPage() {
       .then((tree: Department[]) => setDeptOptions(flattenDepartments(tree)))
       .catch(() => setDeptOptions([]))
     fetchAllPositions()
-      .then((res) => setPositions(res.list))
+      .then((res) => setPositions(res.list ?? []))
       .catch(() => setPositions([]))
     fetchAllJobs()
-      .then((res) => setJobOptions(res.list))
+      .then((res) => setJobOptions(res.list ?? []))
       .catch(() => setJobOptions([]))
   }, [])
 

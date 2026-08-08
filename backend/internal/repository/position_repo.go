@@ -42,7 +42,7 @@ func (r *PositionRepo) List(keyword string, departmentID uint, page, pageSize in
 	if err := r.positionQuery(keyword, departmentID).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []PositionItem
+	items := make([]PositionItem, 0)
 	err := r.positionQuery(keyword, departmentID).
 		Select("positions.*, d.name AS department_name").
 		Order("positions.id ASC").

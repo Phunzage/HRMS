@@ -124,7 +124,7 @@ func (r *DashboardRepo) CandidateCount() (int64, error) {
 
 // DepartmentDistribution 部门人数分布（按员工归属部门分组）
 func (r *DashboardRepo) DepartmentDistribution() ([]DeptCountRow, error) {
-	var rows []DeptCountRow
+	rows := make([]DeptCountRow, 0)
 	err := r.db.Model(&models.Employee{}).
 		Select("d.name AS department_name, COUNT(*) AS count").
 		Joins("LEFT JOIN departments d ON d.id = employees.department_id").
@@ -136,7 +136,7 @@ func (r *DashboardRepo) DepartmentDistribution() ([]DeptCountRow, error) {
 
 // RecruitTrend 招聘趋势（按候选人 created_at 月份分组，近 start 之后）
 func (r *DashboardRepo) RecruitTrend(start time.Time) ([]MonthCountRow, error) {
-	var rows []MonthCountRow
+	rows := make([]MonthCountRow, 0)
 	err := r.db.Model(&models.Candidate{}).
 		Select("to_char(created_at, 'YYYY-MM') AS month, COUNT(*) AS count").
 		Where("created_at >= ?", start).
@@ -148,7 +148,7 @@ func (r *DashboardRepo) RecruitTrend(start time.Time) ([]MonthCountRow, error) {
 
 // SalaryTrend 工资总额趋势（confirmed/paid 工资单按月分组，近 startMonth 之后）
 func (r *DashboardRepo) SalaryTrend(startMonth string) ([]MonthAmountRow, error) {
-	var rows []MonthAmountRow
+	rows := make([]MonthAmountRow, 0)
 	err := r.db.Model(&models.SalaryRecord{}).
 		Select("month, SUM(net_salary) AS total_net").
 		Where("status IN ? AND month >= ?", []string{"confirmed", "paid"}, startMonth).

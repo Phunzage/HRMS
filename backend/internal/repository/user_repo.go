@@ -91,7 +91,7 @@ func (r *UserRepo) List(keyword string, roleID uint, status int, page, pageSize 
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []UserItem
+	items := make([]UserItem, 0)
 	err := q.Select("users.*, roles.name AS role_name, ds.name AS dept_scope_name").
 		Order("users.id ASC").
 		Offset((page - 1) * pageSize).Limit(pageSize).

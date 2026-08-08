@@ -48,7 +48,7 @@ func (r *RecruitmentRepo) JobList(status, keyword string, deptIDs []uint, page, 
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []JobItem
+	items := make([]JobItem, 0)
 	err := q.Select("job_openings.*, d.name AS department_name, p.name AS position_name").
 		Order("job_openings.id DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
@@ -97,7 +97,7 @@ func (r *RecruitmentRepo) CandidateList(jobID uint, status string, page, pageSiz
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []CandidateItem
+	items := make([]CandidateItem, 0)
 	err := q.Select("candidates.*, j.title AS job_title").
 		Order("candidates.id DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).

@@ -104,7 +104,7 @@ export default function AttendancePage() {
   useEffect(() => {
     if (!canManage) return
     fetchAllEmployees()
-      .then((res) => setEmployees(res.list))
+      .then((res) => setEmployees(res.list ?? []))
       .catch(() => setEmployees([]))
   }, [canManage])
 

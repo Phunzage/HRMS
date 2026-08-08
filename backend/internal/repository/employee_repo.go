@@ -61,7 +61,7 @@ func (r *EmployeeRepo) List(keyword string, departmentID uint, status int, posit
 	if err := r.employeeQuery(keyword, departmentID, status, positionID, deptIDs).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []EmployeeItem
+	items := make([]EmployeeItem, 0)
 	err := r.employeeQuery(keyword, departmentID, status, positionID, deptIDs).
 		Select("employees.*, d.name AS department_name, p.name AS position_name").
 		Order("employees.id ASC").
@@ -75,7 +75,7 @@ func (r *EmployeeRepo) List(keyword string, departmentID uint, status int, posit
 
 // ExportAll 导出全部匹配员工（不分页），支持与列表相同的过滤参数，deptIDs 为数据范围（nil 不过滤）
 func (r *EmployeeRepo) ExportAll(keyword string, departmentID uint, status int, positionID uint, deptIDs []uint) ([]EmployeeItem, error) {
-	var items []EmployeeItem
+	items := make([]EmployeeItem, 0)
 	err := r.employeeQuery(keyword, departmentID, status, positionID, deptIDs).
 		Select("employees.*, d.name AS department_name, p.name AS position_name").
 		Order("employees.id ASC").

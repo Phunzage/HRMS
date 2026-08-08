@@ -24,7 +24,7 @@ func NewRoleRepo(db *gorm.DB) *RoleRepo {
 
 // ListAll 查询全部角色（供用户下拉选择，登录即可）
 func (r *RoleRepo) ListAll() ([]models.Role, error) {
-	var roles []models.Role
+	roles := make([]models.Role, 0)
 	if err := r.db.Order("id ASC").Find(&roles).Error; err != nil {
 		return nil, err
 	}
@@ -33,7 +33,7 @@ func (r *RoleRepo) ListAll() ([]models.Role, error) {
 
 // List 角色列表（含权限点 code 数组）
 func (r *RoleRepo) List() ([]RoleItem, error) {
-	var roles []models.Role
+	roles := make([]models.Role, 0)
 	if err := r.db.Order("id ASC").Find(&roles).Error; err != nil {
 		return nil, err
 	}
@@ -50,7 +50,7 @@ func (r *RoleRepo) List() ([]RoleItem, error) {
 
 // ListPermissions 查询全部权限点（按模块、ID 排序，供前端分组勾选）
 func (r *RoleRepo) ListPermissions() ([]models.Permission, error) {
-	var perms []models.Permission
+	perms := make([]models.Permission, 0)
 	if err := r.db.Order("module ASC, id ASC").Find(&perms).Error; err != nil {
 		return nil, err
 	}
@@ -89,7 +89,7 @@ func (r *RoleRepo) FindPermissionIDsByCodes(codes []string) ([]uint, error) {
 	if len(codes) == 0 {
 		return []uint{}, nil
 	}
-	var ids []uint
+	ids := make([]uint, 0)
 	if err := r.db.Model(&models.Permission{}).
 		Where("code IN ?", codes).
 		Pluck("id", &ids).Error; err != nil {

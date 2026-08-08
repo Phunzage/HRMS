@@ -39,7 +39,7 @@ func (r *AuditRepo) List(module, action, username, startDate, endDate string, pa
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []models.AuditLog
+	items := make([]models.AuditLog, 0)
 	err := q.Order("created_at DESC, id DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
 		Find(&items).Error

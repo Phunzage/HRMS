@@ -52,9 +52,9 @@ func (r *AttendanceCorrectionRepo) Create(cor *models.AttendanceCorrection) erro
 
 // FindManagerEmployeeID 查找员工所属部门负责人（部门 ManagerID 对应的员工ID），无负责人返回 nil
 func (r *AttendanceCorrectionRepo) FindManagerEmployeeID(employeeID uint) (*uint, error) {
-	var rows []struct {
+	rows := make([]struct {
 		ManagerID *uint
-	}
+	}, 0)
 	err := r.db.Model(&models.Employee{}).
 		Select("d.manager_id").
 		Joins("JOIN departments d ON d.id = employees.department_id").
@@ -111,7 +111,7 @@ func (r *AttendanceCorrectionRepo) List(scope CorrectionScope, status string, em
 	if err := r.correctionQuery(scope, status, employeeID).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []CorrectionItem
+	items := make([]CorrectionItem, 0)
 	err := r.correctionQuery(scope, status, employeeID).
 		Select("attendance_corrections.*, e.name AS employee_name, d.name AS department_name").
 		Order("attendance_corrections.id DESC").
@@ -136,7 +136,7 @@ func (r *AttendanceCorrectionRepo) ListByEmployee(employeeID uint, status string
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []CorrectionItem
+	items := make([]CorrectionItem, 0)
 	err := q.Select("attendance_corrections.*, e.name AS employee_name, d.name AS department_name").
 		Order("attendance_corrections.id DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).

@@ -111,7 +111,8 @@ export default function LeavePage() {
     setTodoLoading(true)
     fetchLeaves({ status: 'pending', page: 1, page_size: 100 })
       .then((res) => {
-        let list = res.list
+        // 空结果时后端返回 null 兜底为空数组，避免存入 null 导致列表渲染崩溃
+        let list = res.list ?? []
         // 经理只能审批指派给自己的申请
         if (role === 'manager' && user?.employee_id) {
           list = list.filter((l) => l.approver_id === user.employee_id)
@@ -489,6 +490,8 @@ interface LeaveTableProps {
 }
 
 function LeaveTable({ list, columns, actions }: LeaveTableProps) {
+  // 兜底：list 为 null/undefined 时按空数组渲染，防止 .map 崩溃
+  const rows = list ?? []
   const hasApplicant = columns[0] === '申请人'
   return (
     <div className="overflow-x-auto">
@@ -502,7 +505,7 @@ function LeaveTable({ list, columns, actions }: LeaveTableProps) {
           </tr>
         </thead>
         <tbody>
-          {list.map((l) => (
+          {rows.map((l) => (
             <tr key={l.id}>
               {hasApplicant && <td className="font-medium">{l.employee_name || `#${l.employee_id}`}</td>}
               {hasApplicant && <td>{l.department_name || '-'}</td>}
@@ -517,7 +520,7 @@ function LeaveTable({ list, columns, actions }: LeaveTableProps) {
               <td className="text-right">{actions(l)}</td>
             </tr>
           ))}
-          {!list.length && (
+          {!rows.length && (
             <tr>
               <td colSpan={columns.length + 1} className="py-8 text-center text-base-content/50">
                 暂无数据

@@ -115,7 +115,7 @@ export default function EmployeeList() {
       .then((tree: Department[]) => setDeptOptions(flattenDepartments(tree)))
       .catch(() => setDeptOptions([]))
     fetchAllPositions()
-      .then((res) => setPositions(res.list))
+      .then((res) => setPositions(res.list ?? []))
       .catch(() => setPositions([]))
   }, [])
 

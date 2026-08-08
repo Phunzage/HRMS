@@ -137,9 +137,10 @@ export default function DepartmentTree() {
   useEffect(() => {
     fetchAllEmployees()
       .then((res) => {
-        setEmployees(res.list)
+        const list = res.list ?? []
+        setEmployees(list)
         const map: Record<number, string> = {}
-        for (const e of res.list) {
+        for (const e of list) {
           map[e.id] = e.name
         }
         setManagerMap(map)

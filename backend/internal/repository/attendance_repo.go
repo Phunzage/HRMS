@@ -70,7 +70,7 @@ func (r *AttendanceRepo) List(employeeID uint, workDate, month, status string, d
 	if err := r.attendanceQuery(employeeID, workDate, month, status, deptIDs).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []AttendanceItem
+	items := make([]AttendanceItem, 0)
 	err := r.attendanceQuery(employeeID, workDate, month, status, deptIDs).
 		Select("attendances.*, e.name AS employee_name, d.name AS department_name").
 		Order("attendances.work_date DESC, attendances.employee_id ASC").

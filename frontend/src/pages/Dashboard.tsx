@@ -89,7 +89,7 @@ export default function Dashboard() {
   // 最新 3 条公告
   useEffect(() => {
     fetchAnnouncements({ page: 1, page_size: 3 })
-      .then((res) => setAnnouncements(res.list))
+      .then((res) => setAnnouncements(res.list ?? []))
       .catch(() => setAnnouncements([]))
   }, [])
 
@@ -139,7 +139,7 @@ export default function Dashboard() {
       <div className="card bg-base-100 shadow-sm">
         <div className="card-body">
           <h3 className="card-title text-base">部门人数分布</h3>
-          <DeptDistribution data={stats.department_distribution} />
+          <DeptDistribution data={stats.department_distribution ?? []} />
         </div>
       </div>
 
@@ -149,7 +149,7 @@ export default function Dashboard() {
           <div className="card-body">
             <h3 className="card-title text-base">近 6 个月工资总额</h3>
             <BarChart
-              items={stats.salary_trend.map((s) => ({ label: s.month, value: s.total_net }))}
+              items={(stats.salary_trend ?? []).map((s) => ({ label: s.month, value: s.total_net }))}
               color="bg-primary"
               formatValue={formatCompactAmount}
             />
@@ -159,7 +159,7 @@ export default function Dashboard() {
           <div className="card-body">
             <h3 className="card-title text-base">近 6 个月招聘趋势</h3>
             <BarChart
-              items={stats.recruit_trend.map((r) => ({ label: r.month, value: r.count }))}
+              items={(stats.recruit_trend ?? []).map((r) => ({ label: r.month, value: r.count }))}
               color="bg-secondary"
             />
           </div>

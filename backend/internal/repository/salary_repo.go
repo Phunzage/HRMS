@@ -64,7 +64,7 @@ func (r *SalaryRepo) List(employeeID uint, month, status string, departmentID ui
 	if err := r.salaryQuery(employeeID, month, status, departmentID, deptIDs).Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []SalaryItem
+	items := make([]SalaryItem, 0)
 	err := r.salaryQuery(employeeID, month, status, departmentID, deptIDs).
 		Select("salary_records.*, e.name AS employee_name, d.name AS department_name, e.emp_no AS emp_no").
 		Order("salary_records.id DESC").
@@ -78,7 +78,7 @@ func (r *SalaryRepo) List(employeeID uint, month, status string, departmentID ui
 
 // ExportAll 导出全部匹配工资单（不分页），支持 month / status / department_id / employee_id 过滤，deptIDs 为数据范围（nil 不过滤）
 func (r *SalaryRepo) ExportAll(employeeID uint, month, status string, departmentID uint, deptIDs []uint) ([]SalaryItem, error) {
-	var items []SalaryItem
+	items := make([]SalaryItem, 0)
 	err := r.salaryQuery(employeeID, month, status, departmentID, deptIDs).
 		Select("salary_records.*, e.name AS employee_name, d.name AS department_name, e.emp_no AS emp_no").
 		Order("salary_records.month DESC, salary_records.employee_id ASC").
@@ -103,7 +103,7 @@ func (r *SalaryRepo) BatchGenerate(month string) (*BatchGenerateResult, error) {
 			return err
 		}
 		// 当月尚无工资单的在职员工（status=1）
-		var emps []models.Employee
+		emps := make([]models.Employee, 0)
 		if err := tx.Model(&models.Employee{}).
 			Where("status = ?", 1).
 			Where("NOT EXISTS (SELECT 1 FROM salary_records sr WHERE sr.employee_id = employees.id AND sr.month = ? AND sr.deleted_at IS NULL)", month).
@@ -166,7 +166,7 @@ func (r *SalaryRepo) ListByEmployee(employeeID uint, month string, page, pageSiz
 	if err := q.Count(&total).Error; err != nil {
 		return nil, 0, err
 	}
-	var items []SalaryItem
+	items := make([]SalaryItem, 0)
 	err := q.Select("salary_records.*, e.name AS employee_name, d.name AS department_name").
 		Order("salary_records.id DESC").
 		Offset((page - 1) * pageSize).Limit(pageSize).
