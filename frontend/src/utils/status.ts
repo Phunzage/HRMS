@@ -26,6 +26,43 @@ export const ATTENDANCE_STATUS: Record<string, BadgeItem> = {
   late: { label: '迟到', badge: 'badge-warning' },
   early_leave: { label: '早退', badge: 'badge-warning' },
   absent: { label: '缺勤', badge: 'badge-error' },
+  leave: { label: '请假', badge: 'badge-info' },
+}
+
+// 补卡申请状态
+export const CORRECTION_STATUS: Record<string, BadgeItem> = {
+  pending: { label: '待审批', badge: 'badge-warning' },
+  approved: { label: '已通过', badge: 'badge-success' },
+  rejected: { label: '已驳回', badge: 'badge-error' },
+  cancelled: { label: '已取消', badge: 'badge-ghost' },
+}
+
+// 补卡类型
+export const CORRECTION_TYPE: Record<string, string> = {
+  check_in: '上班打卡',
+  check_out: '下班打卡',
+}
+
+// 绩效状态
+export const PERFORMANCE_STATUS: Record<string, BadgeItem> = {
+  draft: { label: '草稿', badge: 'badge-ghost' },
+  submitted: { label: '待审批', badge: 'badge-warning' },
+  approved: { label: '已批准', badge: 'badge-success' },
+}
+
+// 绩效评级（S绿/A蓝/B黄/C橙/D红，对应 task 要求；B/C 用 Tailwind 精确色值区分黄/橙）
+export const PERFORMANCE_RATING: Record<string, BadgeItem> = {
+  S: { label: 'S', badge: 'badge-success' },
+  A: { label: 'A', badge: 'badge-info' },
+  B: { label: 'B', badge: 'bg-yellow-500 border-yellow-500 text-white' },
+  C: { label: 'C', badge: 'bg-orange-500 border-orange-500 text-white' },
+  D: { label: 'D', badge: 'badge-error' },
+}
+
+// 公告状态
+export const ANNOUNCEMENT_STATUS: Record<string, BadgeItem> = {
+  published: { label: '已发布', badge: 'badge-success' },
+  draft: { label: '草稿', badge: 'badge-ghost' },
 }
 
 // 请假申请状态

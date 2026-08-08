@@ -141,6 +141,7 @@ func Register(r *gin.Engine, db *gorm.DB) {
 			{
 				// 自助接口：仅需登录，无需额外权限（须先于 :id 注册，静态段优先匹配）
 				employees.GET("/me", empHandler.Me)
+				employees.PUT("/me/avatar", empHandler.UpdateMyAvatar)
 				employees.GET("", middleware.RequirePermission(db, "employee:read"), empHandler.List)
 				employees.POST("", middleware.RequirePermission(db, "employee:write"), empHandler.Create)
 				// 导出须先于 :id 注册，否则 "export" 会被当作 id 匹配详情路由

@@ -87,6 +87,11 @@ export function updateEmployee(id: number, data: Record<string, unknown>) {
   return client.put(`/employees/${id}`, data) as Promise<null>
 }
 
+// 自助更新本人头像（无需 employee:write 权限，供员工个人中心使用）
+export function updateMyAvatar(avatar: string) {
+  return client.put('/employees/me/avatar', { avatar }) as Promise<null>
+}
+
 // 删除员工（软删除）
 export function deleteEmployee(id: number) {
   return client.delete(`/employees/${id}`) as Promise<null>

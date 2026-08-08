@@ -13,12 +13,14 @@ import (
 
 // 员工业务错误
 var (
-	ErrEmpNotFound     = errors.New("员工不存在")
-	ErrEmpNameRequired = errors.New("员工姓名不能为空")
-	ErrEmpDeptNotFound = errors.New("所属部门不存在")
-	ErrEmpPosNotFound  = errors.New("所属岗位不存在")
-	ErrEmpNoUser       = errors.New("当前账号未关联员工档案")
-	ErrEmpDateBad      = errors.New("日期格式错误，应为 YYYY-MM-DD")
+	ErrEmpNotFound      = errors.New("员工不存在")
+	ErrEmpNameRequired  = errors.New("员工姓名不能为空")
+	ErrEmpDeptNotFound  = errors.New("所属部门不存在")
+	ErrEmpPosNotFound   = errors.New("所属岗位不存在")
+	ErrEmpNoUser        = errors.New("当前账号未关联员工档案")
+	ErrEmpDateBad       = errors.New("日期格式错误，应为 YYYY-MM-DD")
+	ErrEmpAvatarEmpty   = errors.New("头像地址不能为空")
+	ErrEmpAvatarTooLong = errors.New("头像地址过长")
 )
 
 // DefaultPassword 创建系统账号时的默认密码
@@ -347,6 +349,25 @@ func (s *EmployeeService) GetMyProfile(userID uint) (*repository.EmployeeItem, e
 		return nil, ErrEmpNoUser
 	}
 	return s.GetByID(*empID)
+}
+
+// UpdateMyAvatar 自助更新当前用户本人头像（登录即可，无需 employee:write）
+// 仅允许修改 avatar 字段，防止员工越权修改其他信息
+func (s *EmployeeService) UpdateMyAvatar(userID uint, avatar string) error {
+	if avatar == "" {
+		return ErrEmpAvatarEmpty
+	}
+	if len(avatar) > 255 {
+		return ErrEmpAvatarTooLong
+	}
+	empID, err := s.empRepo.FindEmployeeIDByUserID(userID)
+	if err != nil {
+		return err
+	}
+	if empID == nil {
+		return ErrEmpNoUser
+	}
+	return s.empRepo.UpdateAvatar(*empID, avatar)
 }
 
 // parseDatePtr 解析 YYYY-MM-DD 日期；空串表示清空（返回 nil）

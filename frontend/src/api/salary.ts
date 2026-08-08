@@ -49,6 +49,14 @@ export function fetchMySalaries(params: { month?: string; page?: number; page_si
   return client.get('/salaries/mine', { params }) as Promise<PageResult<SalaryRecord>>
 }
 
+// 批量生成某月工资单（为当月尚无工资单的在职员工生成 draft）
+export function batchGenerate(month: string) {
+  return client.post('/salaries/batch-generate', { month }) as Promise<{
+    generated: number
+    skipped: number
+  }>
+}
+
 // 创建工资单
 export function createSalary(data: SalaryPayload) {
   return client.post('/salaries', data) as Promise<SalaryRecord>

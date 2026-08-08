@@ -156,6 +156,11 @@ func (r *EmployeeRepo) Update(id uint, fields map[string]interface{}) error {
 	return r.db.Model(&models.Employee{}).Where("id = ?", id).Updates(fields).Error
 }
 
+// UpdateAvatar 仅更新员工头像字段（自助接口专用）
+func (r *EmployeeRepo) UpdateAvatar(id uint, avatar string) error {
+	return r.db.Model(&models.Employee{}).Where("id = ?", id).Update("avatar", avatar).Error
+}
+
 // SoftDeleteAndDisableUser 软删除员工，若关联系统账号则一并禁用
 func (r *EmployeeRepo) SoftDeleteAndDisableUser(id uint) error {
 	return r.db.Transaction(func(tx *gorm.DB) error {

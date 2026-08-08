@@ -5,6 +5,7 @@ import {
   updateSalary,
   confirmSalary,
   paySalary,
+  batchGenerate,
   type SalaryRecord,
   type SalaryPayload,
 } from '../api/salary'
@@ -62,6 +63,11 @@ export default function SalaryPage() {
   const [editing, setEditing] = useState<SalaryRecord | null>(null)
   const [form, setForm] = useState<SalaryForm>(emptyForm)
   const [saving, setSaving] = useState(false)
+
+  // 批量生成弹窗
+  const [batchOpen, setBatchOpen] = useState(false)
+  const [batchMonth, setBatchMonth] = useState(currentMonth())
+  const [batchLoading, setBatchLoading] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -164,6 +170,26 @@ export default function SalaryPage() {
       .catch((err: unknown) => toast.error(err instanceof Error ? err.message : '发放失败'))
   }
 
+  const handleBatchGenerate = async () => {
+    if (!batchMonth) {
+      toast.error('请选择月份')
+      return
+    }
+    setBatchLoading(true)
+    try {
+      const result = await batchGenerate(batchMonth)
+      toast.success(`批量生成成功：新增 ${result.generated} 张，跳过 ${result.skipped} 张`)
+      setBatchOpen(false)
+      setMonth(batchMonth)
+      setPage(1)
+      reload()
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '批量生成失败')
+    } finally {
+      setBatchLoading(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-4">
       {/* 工具栏 */}
@@ -224,7 +250,10 @@ export default function SalaryPage() {
             </select>
           </label>
           {canManage && (
-            <div className="ml-auto">
+            <div className="ml-auto flex items-center gap-2">
+              <button type="button" className="btn btn-ghost btn-sm" onClick={() => setBatchOpen(true)}>
+                批量生成
+              </button>
               <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
                 ＋ 新增工资单
               </button>
@@ -316,6 +345,39 @@ export default function SalaryPage() {
           )}
         </div>
       </div>
+
+      {/* 批量生成 Modal */}
+      <Modal
+        open={batchOpen}
+        title="批量生成工资单"
+        onClose={() => setBatchOpen(false)}
+        footer={
+          <>
+            <button type="button" className="btn btn-ghost" onClick={() => setBatchOpen(false)}>
+              取消
+            </button>
+            <button type="button" className="btn btn-primary" disabled={batchLoading} onClick={handleBatchGenerate}>
+              {batchLoading && <span className="loading loading-spinner loading-sm" />}
+              开始生成
+            </button>
+          </>
+        }
+      >
+        <div className="flex flex-col gap-3">
+          <Field label="工资月份" required>
+            <input
+              type="month"
+              className="input input-bordered input-sm"
+              value={batchMonth}
+              onChange={(e) => setBatchMonth(e.target.value)}
+              required
+            />
+          </Field>
+          <p className="text-sm text-base-content/60">
+            将为该月份尚无工资单的在职员工批量生成「草稿」工资单，已有工资单的员工自动跳过。
+          </p>
+        </div>
+      </Modal>
 
       {/* 新增/编辑 Modal */}
       <Modal

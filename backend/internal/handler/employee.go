@@ -97,6 +97,32 @@ func (h *Employee) Me(c *gin.Context) {
 	response.OK(c, emp)
 }
 
+// UpdateMyAvatar 自助更新当前登录用户本人头像（登录即可，无需 employee:write）
+func (h *Employee) UpdateMyAvatar(c *gin.Context) {
+	var req struct {
+		Avatar string `json:"avatar" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	if err := h.service.UpdateMyAvatar(middleware.GetUserID(c), req.Avatar); err != nil {
+		switch {
+		case errors.Is(err, service.ErrEmpAvatarEmpty):
+			response.Error(c, http.StatusBadRequest, 400, err.Error())
+		case errors.Is(err, service.ErrEmpAvatarTooLong):
+			response.Error(c, http.StatusBadRequest, 400, err.Error())
+		case errors.Is(err, service.ErrEmpNoUser):
+			response.Error(c, http.StatusNotFound, 404, err.Error())
+		default:
+			response.Error(c, http.StatusInternalServerError, 500, "更新头像失败")
+		}
+		return
+	}
+	middleware.Record(h.db, c, "employee", "update", "", "更新本人头像")
+	response.OK(c, nil)
+}
+
 // Create 创建员工
 func (h *Employee) Create(c *gin.Context) {
 	var req service.CreateEmployeeRequest

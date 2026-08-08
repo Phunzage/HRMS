@@ -9,6 +9,8 @@ import PositionPage from './pages/PositionPage'
 import AttendancePage from './pages/AttendancePage'
 import LeavePage from './pages/LeavePage'
 import SalaryPage from './pages/SalaryPage'
+import AnnouncementsPage from './pages/Announcements'
+import PerformancePage from './pages/PerformancePage'
 import RecruitmentPage from './pages/RecruitmentPage'
 import ProfilePage from './pages/ProfilePage'
 import UsersPage from './pages/Users'
@@ -53,6 +55,8 @@ function App() {
         <Route path="/attendance" element={<AttendancePage />} />
         <Route path="/leaves" element={<LeavePage />} />
         <Route path="/salaries" element={<SalaryPage />} />
+        <Route path="/announcements" element={<AnnouncementsPage />} />
+        <Route path="/performance" element={<PerformancePage />} />
         <Route path="/recruitment" element={<RecruitmentPage />} />
         <Route path="/users" element={<UsersPage />} />
         <Route path="/roles" element={<RolesPage />} />

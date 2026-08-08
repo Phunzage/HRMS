@@ -1,7 +1,7 @@
 import client from './client'
 import type { PageResult } from './client'
 
-// 用户列表项（附带角色名称）
+// 用户列表项（附带角色名称、数据范围部门）
 export interface UserItem {
   id: number
   username: string
@@ -10,6 +10,8 @@ export interface UserItem {
   role_id: number
   role_name: string
   employee_id: number | null
+  dept_scope_id: number | null // HR 数据范围部门（可空）
+  dept_scope_name: string | null
   status: number // 1 启用 / 0 禁用
   created_at: string
   updated_at: string
@@ -47,10 +49,10 @@ export function createUser(data: {
   return client.post('/users', data) as Promise<UserItem>
 }
 
-// 更新用户基本信息
+// 更新用户基本信息（dept_scope_id 传 null 表示清空数据范围）
 export function updateUser(
   id: number,
-  data: { full_name?: string; email?: string; role_id?: number; status?: number },
+  data: { full_name?: string; email?: string; role_id?: number; status?: number; dept_scope_id?: number | null },
 ) {
   return client.put(`/users/${id}`, data) as Promise<null>
 }

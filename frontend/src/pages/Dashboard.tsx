@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Users,
   BadgeCheck,
@@ -10,9 +11,13 @@ import {
   FileText,
   Briefcase,
   UserRound,
+  Pin,
+  ArrowRight,
   type LucideIcon,
 } from 'lucide-react'
 import { fetchDashboardStats, type DashboardStats, type DeptCount } from '../api/dashboard'
+import { fetchAnnouncements, type Announcement } from '../api/announcement'
+import { formatDateTime } from '../utils/format'
 import BarChart, { formatCompactAmount } from '../components/BarChart'
 
 // 统计卡片配置
@@ -68,7 +73,9 @@ function DeptDistribution({ data }: { data: DeptCount[] }) {
 }
 
 export default function Dashboard() {
+  const navigate = useNavigate()
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
 
@@ -77,6 +84,13 @@ export default function Dashboard() {
       .then(setStats)
       .catch((err: unknown) => setError(err instanceof Error ? err.message : '获取统计数据失败'))
       .finally(() => setLoading(false))
+  }, [])
+
+  // 最新 3 条公告
+  useEffect(() => {
+    fetchAnnouncements({ page: 1, page_size: 3 })
+      .then((res) => setAnnouncements(res.list))
+      .catch(() => setAnnouncements([]))
   }, [])
 
   if (loading) {
@@ -149,6 +163,47 @@ export default function Dashboard() {
               color="bg-secondary"
             />
           </div>
+        </div>
+      </div>
+
+      {/* 最新公告 */}
+      <div className="card bg-base-100 shadow-sm">
+        <div className="card-body">
+          <div className="flex items-center justify-between">
+            <h3 className="card-title text-base">最新公告</h3>
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs"
+              onClick={() => navigate('/announcements')}
+            >
+              查看全部
+              <ArrowRight className="h-3.5 w-3.5" />
+            </button>
+          </div>
+          {announcements.length ? (
+            <ul className="flex flex-col divide-y divide-base-200">
+              {announcements.map((a) => (
+                <li key={a.id}>
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 py-2 text-left hover:bg-base-200"
+                    onClick={() => navigate('/announcements')}
+                  >
+                    {a.is_pinned && (
+                      <span className="badge badge-error badge-sm gap-0.5">
+                        <Pin className="h-3 w-3" />
+                        置顶
+                      </span>
+                    )}
+                    <span className="flex-1 truncate text-sm font-medium">{a.title}</span>
+                    <span className="shrink-0 text-xs text-base-content/50">{formatDateTime(a.published_at)}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="py-4 text-sm text-base-content/60">暂无公告</p>
+          )}
         </div>
       </div>
     </div>

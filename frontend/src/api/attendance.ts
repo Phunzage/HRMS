@@ -30,6 +30,30 @@ export function fetchAttendance(params: AttendanceQuery = {}) {
   return client.get('/attendance', { params }) as Promise<PageResult<Attendance>>
 }
 
+// 考勤月报项（按员工聚合某月各考勤状态计数）
+export interface AttendanceReportItem {
+  employee_id: number
+  employee_name: string
+  department_name: string
+  work_days: number
+  normal_days: number
+  late_count: number
+  early_leave_count: number
+  absent_days: number
+  leave_days: number
+}
+
+// 考勤月报响应
+export interface AttendanceReport {
+  list: AttendanceReportItem[]
+  month: string
+}
+
+// 考勤月报
+export function getReport(params: { month?: string; department_id?: number } = {}) {
+  return client.get('/attendance/report', { params }) as Promise<AttendanceReport>
+}
+
 // 上班打卡
 export function checkIn() {
   return client.post('/attendance/check-in') as Promise<Attendance>

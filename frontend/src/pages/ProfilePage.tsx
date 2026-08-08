@@ -1,6 +1,7 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
 import { me, changePassword, type MeResult } from '../api/auth'
-import { fetchMyProfile, type Employee } from '../api/employee'
+import { fetchMyProfile, updateMyAvatar, type Employee } from '../api/employee'
+import { uploadFile } from '../api/upload'
 import { useAuthStore } from '../store/auth'
 import { toast } from '../store/toast'
 import { EMPLOYEE_STATUS, GENDER } from '../utils/status'
@@ -39,6 +40,29 @@ export default function ProfilePage() {
   const [pwd, setPwd] = useState<PwdForm>(emptyPwd)
   const [pwdError, setPwdError] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // 头像上传
+  const avatarInputRef = useRef<HTMLInputElement>(null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+
+  // 更换头像：上传文件 → 更新本人 avatar 字段（自助接口，无需 employee:write）→ 刷新档案
+  const handleAvatarChange = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // 允许重复选择同一文件
+    if (!file || !profile) return
+    setAvatarUploading(true)
+    try {
+      const { url } = await uploadFile(file)
+      await updateMyAvatar(url)
+      const fresh = await fetchMyProfile()
+      setProfile(fresh)
+      toast.success('头像已更新')
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : '头像上传失败')
+    } finally {
+      setAvatarUploading(false)
+    }
+  }
 
   // 加载用户信息 + 员工档案
   useEffect(() => {
@@ -127,7 +151,42 @@ export default function ProfilePage() {
         <div className="card-body">
           <h3 className="card-title text-base">员工档案</h3>
           {profile ? (
-            <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+            <>
+              {/* 头像 */}
+              <div className="flex items-center gap-4">
+                <div className="avatar">
+                  <div className="w-20 rounded-full bg-base-200 ring ring-primary ring-offset-2 ring-offset-base-100">
+                    {profile.avatar ? (
+                      <img src={profile.avatar} alt={profile.name} />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center text-3xl font-bold text-base-content/40">
+                        {profile.name?.slice(0, 1) || '?'}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <div className="text-base font-semibold">{profile.name}</div>
+                  <button
+                    type="button"
+                    className="btn btn-outline btn-xs w-fit"
+                    disabled={avatarUploading}
+                    onClick={() => avatarInputRef.current?.click()}
+                  >
+                    {avatarUploading && <span className="loading loading-spinner loading-xs" />}
+                    {avatarUploading ? '上传中...' : '更换头像'}
+                  </button>
+                  <input
+                    ref={avatarInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleAvatarChange}
+                  />
+                </div>
+              </div>
+
+              <div className="mt-4 grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
               <div>
                 <div className="text-base-content/50">工号</div>
                 <div className="font-mono font-medium">{profile.emp_no}</div>
@@ -175,6 +234,7 @@ export default function ProfilePage() {
                 <div>{profile.address || '-'}</div>
               </div>
             </div>
+            </>
           ) : (
             <p className="text-sm text-base-content/50">{profileError || '暂无员工档案信息'}</p>
           )}

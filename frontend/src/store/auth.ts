@@ -13,11 +13,14 @@ export interface AuthUser {
 
 interface AuthState {
   token: string | null
+  refresh_token: string | null
   user: AuthUser | null
-  /** 登录成功后写入 token + user */
-  setAuth: (token: string, user: AuthUser) => void
+  /** 登录成功后写入 token 对 + user */
+  setAuth: (token: string, user: AuthUser, refreshToken?: string) => void
   /** 刷新用户信息（如 /auth/me 拉取） */
   setUser: (user: AuthUser) => void
+  /** 仅更新 token 对（刷新令牌后调用，保留原 user） */
+  setTokens: (token: string, refreshToken: string) => void
   /** 退出登录：清空 token 与 user */
   logout: () => void
 }
@@ -27,10 +30,12 @@ export const useAuthStore = create<AuthState>()(
   persist(
     (set) => ({
       token: null,
+      refresh_token: null,
       user: null,
-      setAuth: (token, user) => set({ token, user }),
+      setAuth: (token, user, refreshToken) => set({ token, user, refresh_token: refreshToken ?? null }),
       setUser: (user) => set({ user }),
-      logout: () => set({ token: null, user: null }),
+      setTokens: (token, refreshToken) => set({ token, refresh_token: refreshToken }),
+      logout: () => set({ token: null, refresh_token: null, user: null }),
     }),
     {
       name: 'hrms_token',

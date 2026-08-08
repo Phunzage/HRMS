@@ -18,6 +18,8 @@ import Modal from '../components/Modal'
 import Field from '../components/FormField'
 import Pagination from '../components/Pagination'
 import StatusBadge from '../components/StatusBadge'
+import AttendanceCorrections from './AttendanceCorrections'
+import AttendanceReport from './AttendanceReport'
 
 const PAGE_SIZE = 10
 
@@ -46,6 +48,11 @@ export default function AttendancePage() {
   const canManage = role === 'admin' || role === 'hr'
   // 打卡自助需关联员工档案
   const canCheck = !!user?.employee_id
+  // 考勤月报仅 admin/hr/manager 可见
+  const canReport = role === 'admin' || role === 'hr' || role === 'manager'
+
+  // Tab：考勤记录 / 补卡申请 / 考勤月报
+  const [activeTab, setActiveTab] = useState<'records' | 'corrections' | 'report'>('records')
 
   // 查询条件
   const [month, setMonth] = useState(currentMonth())
@@ -173,6 +180,41 @@ export default function AttendancePage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {/* Tab 栏 */}
+      <div role="tablist" className="tabs tabs-boxed w-fit">
+        <button
+          type="button"
+          role="tab"
+          className={`tab ${activeTab === 'records' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('records')}
+        >
+          考勤记录
+        </button>
+        <button
+          type="button"
+          role="tab"
+          className={`tab ${activeTab === 'corrections' ? 'tab-active' : ''}`}
+          onClick={() => setActiveTab('corrections')}
+        >
+          补卡申请
+        </button>
+        {canReport && (
+          <button
+            type="button"
+            role="tab"
+            className={`tab ${activeTab === 'report' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('report')}
+          >
+            考勤月报
+          </button>
+        )}
+      </div>
+
+      {activeTab === 'corrections' && <AttendanceCorrections />}
+      {activeTab === 'report' && canReport && <AttendanceReport />}
+
+      {activeTab === 'records' && (
+      <>
       {/* 工具栏 */}
       <div className="card bg-base-100 shadow-sm">
         <div className="card-body flex flex-row flex-wrap items-end gap-3 p-4">
@@ -413,6 +455,8 @@ export default function AttendancePage() {
           </Field>
         </div>
       </Modal>
+      </>
+      )}
     </div>
   )
 }
