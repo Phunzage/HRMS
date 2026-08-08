@@ -27,17 +27,25 @@ func Load() *Config {
 		slog.Warn(".env 文件未找到，使用环境变量或默认值")
 	}
 
-	return &Config{
+	cfg := &Config{
 		Port:             getEnv("PORT", "8080"),
 		DBHost:           getEnv("DB_HOST", "localhost"),
 		DBPort:           getEnv("DB_PORT", "5432"),
 		DBUser:           getEnv("DB_USER", "postgres"),
 		DBPassword:       getEnv("DB_PASSWORD", "3143"),
 		DBName:           getEnv("DB_NAME", "hrms"),
-		JWTSecret:        getEnv("JWT_SECRET", "dev-secret-change-me"),
+		JWTSecret:        getEnv("JWT_SECRET", defaultJWTSecret),
 		TokenExpireHours: getEnvInt("TOKEN_EXPIRE_HOURS", 24),
 	}
+	// JWT_SECRET 仍为默认值时给出告警（不强退，便于开发环境快速启动）
+	if cfg.JWTSecret == defaultJWTSecret {
+		slog.Warn("JWT_SECRET 仍为默认值 dev-secret-change-me，存在安全风险，请尽快更换")
+	}
+	return cfg
 }
+
+// defaultJWTSecret 开发用默认密钥，仅用于未配置时的兜底
+const defaultJWTSecret = "dev-secret-change-me"
 
 // getEnv 读取环境变量，为空时返回默认值
 func getEnv(key, def string) string {

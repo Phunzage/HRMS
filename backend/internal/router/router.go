@@ -21,7 +21,12 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	// 认证模块（handler → service → repository 分层）
 	userRepo := repository.NewUserRepo(db)
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.TokenExpireHours)
-	authHandler := handler.NewAuth(authService, db)
+	captchaService := service.NewCaptchaService()
+	authHandler := handler.NewAuth(authService, captchaService, db)
+
+	// 文件上传模块
+	uploadService := service.NewUploadService("./uploads")
+	uploadHandler := handler.NewUpload(uploadService)
 
 	// 组织人事模块
 	deptRepo := repository.NewDepartmentRepo(db)
@@ -79,14 +84,19 @@ func Register(r *gin.Engine, db *gorm.DB) {
 		// 健康检查
 		v1.GET("/health", healthHandler.Check)
 
-		// 认证（登录无需 JWT）
+		// 认证（验证码、登录、刷新均无需 JWT）
+		v1.GET("/auth/captcha", authHandler.Captcha)
 		v1.POST("/auth/login", authHandler.Login)
+		v1.POST("/auth/refresh", authHandler.Refresh)
 
 		// 需登录的认证接口
 		authed := v1.Group("", middleware.JWTAuth(cfg.JWTSecret))
 		{
 			authed.GET("/auth/me", authHandler.Me)
 			authed.PUT("/auth/password", authHandler.ChangePassword)
+
+			// 文件上传（仅需登录，无额外权限点）
+			authed.POST("/upload", uploadHandler.UploadImage)
 
 			// 部门管理
 			departments := authed.Group("/departments")
@@ -211,4 +221,7 @@ func Register(r *gin.Engine, db *gorm.DB) {
 			}
 		}
 	}
+
+	// 静态文件服务：上传的图片（须在 /api 路由外注册，Gin 原生提供目录服务）
+	r.Static("/uploads", "./uploads")
 }

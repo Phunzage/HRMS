@@ -20,10 +20,12 @@ const (
 )
 
 // Claims 自定义 JWT Claims，包含登录态所需的最小信息
+// Type 区分令牌用途：access 为访问令牌，refresh 为刷新令牌（refresh 令牌不能当 access 用）
 type Claims struct {
 	UserID   uint   `json:"user_id"`
 	Username string `json:"username"`
 	RoleCode string `json:"role_code"`
+	Type     string `json:"type,omitempty"`
 	jwt.RegisteredClaims
 }
 
@@ -42,6 +44,12 @@ func JWTAuth(secret string) gin.HandlerFunc {
 			return []byte(secret), nil
 		}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 		if err != nil || !token.Valid {
+			response.Error(c, http.StatusUnauthorized, 401, "未登录或登录已过期")
+			c.Abort()
+			return
+		}
+		// refresh 令牌仅用于换取新令牌，不能作为访问令牌使用
+		if claims.Type == "refresh" {
 			response.Error(c, http.StatusUnauthorized, 401, "未登录或登录已过期")
 			c.Abort()
 			return

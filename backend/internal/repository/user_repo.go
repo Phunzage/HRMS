@@ -1,6 +1,8 @@
 package repository
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 
 	"hrms/backend/internal/models"
@@ -46,6 +48,21 @@ func (r *UserRepo) FindEmployeeByID(id uint) (*models.Employee, error) {
 // UpdatePassword 更新指定用户的密码哈希
 func (r *UserRepo) UpdatePassword(userID uint, passwordHash string) error {
 	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("password_hash", passwordHash).Error
+}
+
+// UpdateLoginLock 更新登录失败计数与锁定截止时间；lockedUntil 为 nil 表示仅更新计数不触发锁定
+func (r *UserRepo) UpdateLoginLock(userID uint, failedCount int, lockedUntil *time.Time) error {
+	fields := map[string]interface{}{"failed_login_count": failedCount}
+	if lockedUntil != nil {
+		fields["locked_until"] = lockedUntil
+	}
+	return r.db.Model(&models.User{}).Where("id = ?", userID).Updates(fields).Error
+}
+
+// ResetLoginFailures 登录成功后清零失败计数与锁定状态
+func (r *UserRepo) ResetLoginFailures(userID uint) error {
+	return r.db.Model(&models.User{}).Where("id = ?", userID).
+		Updates(map[string]interface{}{"failed_login_count": 0, "locked_until": nil}).Error
 }
 
 // UserItem 用户列表项（附带角色名称）
