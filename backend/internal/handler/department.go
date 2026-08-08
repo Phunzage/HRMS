@@ -2,10 +2,13 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
+	"hrms/backend/internal/middleware"
 	"hrms/backend/internal/response"
 	"hrms/backend/internal/service"
 )
@@ -13,11 +16,12 @@ import (
 // Department 部门处理器
 type Department struct {
 	service *service.DepartmentService
+	db      *gorm.DB
 }
 
 // NewDepartment 创建部门处理器
-func NewDepartment(svc *service.DepartmentService) *Department {
-	return &Department{service: svc}
+func NewDepartment(svc *service.DepartmentService, db *gorm.DB) *Department {
+	return &Department{service: svc, db: db}
 }
 
 // List 部门树形列表
@@ -49,6 +53,7 @@ func (h *Department) Create(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "department", "create", fmt.Sprintf("department:%d", dept.ID), fmt.Sprintf("创建部门 %s", dept.Name))
 	response.OK(c, dept)
 }
 
@@ -59,6 +64,7 @@ func (h *Department) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, 400, "参数错误")
 		return
 	}
+	name := h.deptNameOf(id)
 	var req service.UpdateDepartmentRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, 400, "参数错误")
@@ -76,6 +82,7 @@ func (h *Department) Update(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "department", "update", fmt.Sprintf("department:%d", id), fmt.Sprintf("更新部门 %s", name))
 	response.OK(c, nil)
 }
 
@@ -86,6 +93,7 @@ func (h *Department) Delete(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, 400, "参数错误")
 		return
 	}
+	name := h.deptNameOf(id)
 	if err := h.service.Delete(id); err != nil {
 		switch {
 		case errors.Is(err, service.ErrDeptNotFound):
@@ -98,5 +106,14 @@ func (h *Department) Delete(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "department", "delete", fmt.Sprintf("department:%d", id), fmt.Sprintf("删除部门 %s", name))
 	response.OK(c, nil)
+}
+
+// deptNameOf 尽力获取部门名称用于审计描述，获取失败时返回空串
+func (h *Department) deptNameOf(id uint) string {
+	if dept, err := h.service.GetByID(id); err == nil {
+		return dept.Name
+	}
+	return ""
 }

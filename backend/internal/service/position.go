@@ -52,6 +52,18 @@ func (s *PositionService) List(keyword string, departmentID uint, page, pageSize
 	return s.repo.List(keyword, departmentID, page, pageSize)
 }
 
+// GetByID 查询岗位，供处理器拼接审计描述等场景使用
+func (s *PositionService) GetByID(id uint) (*models.Position, error) {
+	pos, err := s.repo.FindByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrPosNotFound
+		}
+		return nil, err
+	}
+	return pos, nil
+}
+
 // Create 创建岗位：校验名称、编码、部门存在、编码唯一
 func (s *PositionService) Create(req CreatePositionRequest) (*models.Position, error) {
 	if req.Name == "" {

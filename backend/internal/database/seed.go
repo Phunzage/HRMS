@@ -79,6 +79,11 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "招聘查看", Code: "recruitment:read", Module: "recruitment"},
 		{Name: "招聘编辑", Code: "recruitment:write", Module: "recruitment"},
 		{Name: "统计仪表盘查看", Code: "dashboard:read", Module: "dashboard"},
+		{Name: "用户查看", Code: "user:read", Module: "user"},
+		{Name: "用户编辑", Code: "user:write", Module: "user"},
+		{Name: "角色查看", Code: "role:read", Module: "role"},
+		{Name: "角色编辑", Code: "role:write", Module: "role"},
+		{Name: "审计日志查看", Code: "audit:read", Module: "audit"},
 	}
 	for _, p := range permissions {
 		var existing models.Permission
@@ -108,6 +113,9 @@ func seedRolePermissions(db *gorm.DB) error {
 			"salary:read", "salary:write",
 			"recruitment:read", "recruitment:write",
 			"dashboard:read",
+			"user:read", "user:write",
+			"role:read",
+			"audit:read",
 		},
 		"manager": {
 			"employee:read",

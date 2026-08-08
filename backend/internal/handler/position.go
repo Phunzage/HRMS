@@ -2,10 +2,13 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
+	"hrms/backend/internal/middleware"
 	"hrms/backend/internal/response"
 	"hrms/backend/internal/service"
 )
@@ -13,11 +16,12 @@ import (
 // Position 岗位处理器
 type Position struct {
 	service *service.PositionService
+	db      *gorm.DB
 }
 
 // NewPosition 创建岗位处理器
-func NewPosition(svc *service.PositionService) *Position {
-	return &Position{service: svc}
+func NewPosition(svc *service.PositionService, db *gorm.DB) *Position {
+	return &Position{service: svc, db: db}
 }
 
 // List 岗位分页列表
@@ -53,6 +57,7 @@ func (h *Position) Create(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "position", "create", fmt.Sprintf("position:%d", pos.ID), fmt.Sprintf("创建岗位 %s", pos.Name))
 	response.OK(c, pos)
 }
 
@@ -63,6 +68,7 @@ func (h *Position) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, 400, "参数错误")
 		return
 	}
+	name := h.posNameOf(id)
 	var req service.UpdatePositionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, 400, "参数错误")
@@ -80,6 +86,7 @@ func (h *Position) Update(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "position", "update", fmt.Sprintf("position:%d", id), fmt.Sprintf("更新岗位 %s", name))
 	response.OK(c, nil)
 }
 
@@ -90,6 +97,7 @@ func (h *Position) Delete(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, 400, "参数错误")
 		return
 	}
+	name := h.posNameOf(id)
 	if err := h.service.Delete(id); err != nil {
 		switch {
 		case errors.Is(err, service.ErrPosNotFound):
@@ -101,5 +109,14 @@ func (h *Position) Delete(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "position", "delete", fmt.Sprintf("position:%d", id), fmt.Sprintf("删除岗位 %s", name))
 	response.OK(c, nil)
+}
+
+// posNameOf 尽力获取岗位名称用于审计描述，获取失败时返回空串
+func (h *Position) posNameOf(id uint) string {
+	if pos, err := h.service.GetByID(id); err == nil {
+		return pos.Name
+	}
+	return ""
 }

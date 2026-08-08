@@ -47,3 +47,71 @@ func (r *UserRepo) FindEmployeeByID(id uint) (*models.Employee, error) {
 func (r *UserRepo) UpdatePassword(userID uint, passwordHash string) error {
 	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("password_hash", passwordHash).Error
 }
+
+// UserItem 用户列表项（附带角色名称）
+type UserItem struct {
+	models.User
+	RoleName string `json:"role_name"`
+}
+
+// List 用户分页列表，支持 keyword（username/full_name）/ role_id / status 过滤；status<0 表示不过滤
+func (r *UserRepo) List(keyword string, roleID uint, status int, page, pageSize int) ([]UserItem, int64, error) {
+	q := r.db.Model(&models.User{}).
+		Joins("LEFT JOIN roles ON roles.id = users.role_id")
+	if keyword != "" {
+		kw := "%" + keyword + "%"
+		q = q.Where("users.username LIKE ? OR users.full_name LIKE ?", kw, kw)
+	}
+	if roleID > 0 {
+		q = q.Where("users.role_id = ?", roleID)
+	}
+	if status >= 0 {
+		q = q.Where("users.status = ?", status)
+	}
+	var total int64
+	if err := q.Count(&total).Error; err != nil {
+		return nil, 0, err
+	}
+	var items []UserItem
+	err := q.Select("users.*, roles.name AS role_name").
+		Order("users.id ASC").
+		Offset((page - 1) * pageSize).Limit(pageSize).
+		Scan(&items).Error
+	if err != nil {
+		return nil, 0, err
+	}
+	return items, total, nil
+}
+
+// FindByUsernameUnscoped 含软删除地查询用户名，用于创建/更新时的唯一性校验
+func (r *UserRepo) FindByUsernameUnscoped(username string) (*models.User, error) {
+	var user models.User
+	if err := r.db.Unscoped().Where("username = ?", username).First(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// Create 创建用户
+func (r *UserRepo) Create(user *models.User) error {
+	return r.db.Create(user).Error
+}
+
+// Update 按字段更新用户
+func (r *UserRepo) Update(id uint, fields map[string]interface{}) error {
+	return r.db.Model(&models.User{}).Where("id = ?", id).Updates(fields).Error
+}
+
+// SoftDelete 软删除用户
+func (r *UserRepo) SoftDelete(id uint) error {
+	return r.db.Delete(&models.User{}, id).Error
+}
+
+// CountByRoleID 统计指定角色下的用户数量（删除角色前校验用）
+func (r *UserRepo) CountByRoleID(roleID uint) (int64, error) {
+	var count int64
+	if err := r.db.Model(&models.User{}).Where("role_id = ?", roleID).Count(&count).Error; err != nil {
+		return 0, err
+	}
+	return count, nil
+}

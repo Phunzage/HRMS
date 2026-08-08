@@ -21,45 +21,57 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	// 认证模块（handler → service → repository 分层）
 	userRepo := repository.NewUserRepo(db)
 	authService := service.NewAuthService(userRepo, cfg.JWTSecret, cfg.TokenExpireHours)
-	authHandler := handler.NewAuth(authService)
+	authHandler := handler.NewAuth(authService, db)
 
 	// 组织人事模块
 	deptRepo := repository.NewDepartmentRepo(db)
 	deptService := service.NewDepartmentService(deptRepo)
-	deptHandler := handler.NewDepartment(deptService)
+	deptHandler := handler.NewDepartment(deptService, db)
 
 	posRepo := repository.NewPositionRepo(db)
 	posService := service.NewPositionService(posRepo)
-	posHandler := handler.NewPosition(posService)
+	posHandler := handler.NewPosition(posService, db)
 
 	empRepo := repository.NewEmployeeRepo(db)
 	empService := service.NewEmployeeService(empRepo, deptRepo, posRepo)
-	empHandler := handler.NewEmployee(empService)
+	empHandler := handler.NewEmployee(empService, db)
 
 	// 考勤模块
 	attendanceRepo := repository.NewAttendanceRepo(db)
 	attendanceService := service.NewAttendanceService(attendanceRepo, empRepo)
-	attendanceHandler := handler.NewAttendance(attendanceService)
+	attendanceHandler := handler.NewAttendance(attendanceService, db)
 
 	// 请假审批流模块
 	leaveRepo := repository.NewLeaveRepo(db)
 	leaveService := service.NewLeaveService(leaveRepo, empRepo)
-	leaveHandler := handler.NewLeave(leaveService)
+	leaveHandler := handler.NewLeave(leaveService, db)
 
 	// 薪酬模块
 	salaryRepo := repository.NewSalaryRepo(db)
 	salaryService := service.NewSalaryService(salaryRepo, empRepo)
-	salaryHandler := handler.NewSalary(salaryService)
+	salaryHandler := handler.NewSalary(salaryService, db)
 
 	// 招聘模块
 	recruitmentRepo := repository.NewRecruitmentRepo(db)
 	recruitmentService := service.NewRecruitmentService(recruitmentRepo, deptRepo, posRepo)
-	recruitmentHandler := handler.NewRecruitment(recruitmentService)
+	recruitmentHandler := handler.NewRecruitment(recruitmentService, db)
 
 	// 统计仪表盘模块
 	dashboardRepo := repository.NewDashboardRepo(db)
 	dashboardService := service.NewDashboardService(dashboardRepo)
 	dashboardHandler := handler.NewDashboard(dashboardService)
+
+	// 用户/角色/审计模块
+	roleRepo := repository.NewRoleRepo(db)
+	userAdminService := service.NewUserService(userRepo, roleRepo)
+	userAdminHandler := handler.NewUser(userAdminService, db)
+
+	roleService := service.NewRoleService(roleRepo, userRepo)
+	roleHandler := handler.NewRole(roleService, db)
+
+	auditRepo := repository.NewAuditRepo(db)
+	auditService := service.NewAuditService(auditRepo)
+	auditHandler := handler.NewAudit(auditService)
 
 	// API v1 分组
 	v1 := r.Group("/api/v1")
@@ -159,6 +171,34 @@ func Register(r *gin.Engine, db *gorm.DB) {
 					candidates.PUT("/:id", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.CandidateUpdate)
 					candidates.DELETE("/:id", middleware.RequirePermission(db, "recruitment:write"), recruitmentHandler.CandidateDelete)
 				}
+			}
+
+			// 用户管理
+			users := authed.Group("/users")
+			{
+				// 角色下拉（仅需登录，静态段优先于 :id 匹配）
+				users.GET("/roles", userAdminHandler.Roles)
+				users.GET("", middleware.RequirePermission(db, "user:read"), userAdminHandler.List)
+				users.POST("", middleware.RequirePermission(db, "user:write"), userAdminHandler.Create)
+				users.PUT("/:id", middleware.RequirePermission(db, "user:write"), userAdminHandler.Update)
+				users.PUT("/:id/password", middleware.RequirePermission(db, "user:write"), userAdminHandler.ResetPassword)
+				users.DELETE("/:id", middleware.RequirePermission(db, "user:write"), userAdminHandler.Delete)
+			}
+
+			// 角色管理
+			roles := authed.Group("/roles")
+			{
+				roles.GET("", middleware.RequirePermission(db, "role:read"), roleHandler.List)
+				roles.GET("/permissions", middleware.RequirePermission(db, "role:read"), roleHandler.Permissions)
+				roles.POST("", middleware.RequirePermission(db, "role:write"), roleHandler.Create)
+				roles.PUT("/:id", middleware.RequirePermission(db, "role:write"), roleHandler.Update)
+				roles.DELETE("/:id", middleware.RequirePermission(db, "role:write"), roleHandler.Delete)
+			}
+
+			// 审计日志
+			auditLogs := authed.Group("/audit-logs")
+			{
+				auditLogs.GET("", middleware.RequirePermission(db, "audit:read"), auditHandler.List)
 			}
 
 			// 统计仪表盘（admin/hr 可访问）

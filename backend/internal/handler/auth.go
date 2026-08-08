@@ -1,9 +1,11 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"hrms/backend/internal/middleware"
 	"hrms/backend/internal/response"
@@ -13,11 +15,12 @@ import (
 // Auth 认证处理器
 type Auth struct {
 	service *service.AuthService
+	db      *gorm.DB
 }
 
 // NewAuth 创建认证处理器
-func NewAuth(svc *service.AuthService) *Auth {
-	return &Auth{service: svc}
+func NewAuth(svc *service.AuthService, db *gorm.DB) *Auth {
+	return &Auth{service: svc, db: db}
 }
 
 // loginRequest 登录请求体
@@ -42,12 +45,18 @@ func (h *Auth) Login(c *gin.Context) {
 	result, err := h.service.Login(req.Username, req.Password)
 	if err != nil {
 		if err == service.ErrInvalidCredentials {
+			// 登录失败审计（此时无登录用户，UserID=0、Username=system）
+			middleware.Record(h.db, c, "auth", "login", "", fmt.Sprintf("登录失败：用户名 %s", req.Username))
 			response.Error(c, http.StatusUnauthorized, 401, "用户名或密码错误")
 			return
 		}
 		response.Error(c, http.StatusInternalServerError, 500, "登录失败，请稍后重试")
 		return
 	}
+	// 登录成功审计：将登录用户写入上下文供 Record 读取
+	c.Set(middleware.CtxUserID, result.User.ID)
+	c.Set(middleware.CtxUsername, result.User.Username)
+	middleware.Record(h.db, c, "auth", "login", fmt.Sprintf("user:%d", result.User.ID), fmt.Sprintf("登录成功：%s", result.User.Username))
 	response.OK(c, result)
 }
 
@@ -79,5 +88,6 @@ func (h *Auth) ChangePassword(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "auth", "reset_password", fmt.Sprintf("user:%d", middleware.GetUserID(c)), "修改自己的密码")
 	response.OK(c, nil)
 }

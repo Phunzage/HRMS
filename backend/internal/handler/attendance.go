@@ -2,9 +2,11 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"hrms/backend/internal/middleware"
 	"hrms/backend/internal/response"
@@ -14,11 +16,12 @@ import (
 // Attendance 考勤处理器
 type Attendance struct {
 	service *service.AttendanceService
+	db      *gorm.DB
 }
 
 // NewAttendance 创建考勤处理器
-func NewAttendance(svc *service.AttendanceService) *Attendance {
-	return &Attendance{service: svc}
+func NewAttendance(svc *service.AttendanceService, db *gorm.DB) *Attendance {
+	return &Attendance{service: svc, db: db}
 }
 
 // List 考勤分页列表
@@ -100,6 +103,7 @@ func (h *Attendance) Manual(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "attendance", "create", fmt.Sprintf("attendance:%d", att.ID), fmt.Sprintf("手工补录考勤 员工ID:%d 日期:%s", att.EmployeeID, att.WorkDate.Format("2006-01-02")))
 	response.OK(c, att)
 }
 
@@ -130,6 +134,7 @@ func (h *Attendance) Update(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "attendance", "update", fmt.Sprintf("attendance:%d", id), fmt.Sprintf("修改考勤记录(ID:%d)", id))
 	response.OK(c, nil)
 }
 
@@ -149,5 +154,6 @@ func (h *Attendance) Delete(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "attendance", "delete", fmt.Sprintf("attendance:%d", id), fmt.Sprintf("删除考勤记录(ID:%d)", id))
 	response.OK(c, nil)
 }

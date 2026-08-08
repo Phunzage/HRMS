@@ -2,9 +2,11 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"hrms/backend/internal/middleware"
 	"hrms/backend/internal/response"
@@ -14,11 +16,12 @@ import (
 // Leave 请假处理器
 type Leave struct {
 	service *service.LeaveService
+	db      *gorm.DB
 }
 
 // NewLeave 创建请假处理器
-func NewLeave(svc *service.LeaveService) *Leave {
-	return &Leave{service: svc}
+func NewLeave(svc *service.LeaveService, db *gorm.DB) *Leave {
+	return &Leave{service: svc, db: db}
 }
 
 // rejectLeaveRequest 驳回请假请求体
@@ -52,6 +55,7 @@ func (h *Leave) Create(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "leave", "create", fmt.Sprintf("leave:%d", leave.ID), fmt.Sprintf("提交请假申请(ID:%d, %s)", leave.ID, leave.LeaveType))
 	response.OK(c, leave)
 }
 
@@ -108,6 +112,7 @@ func (h *Leave) Approve(c *gin.Context) {
 		h.handleActionError(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "leave", "approve", fmt.Sprintf("leave:%d", id), fmt.Sprintf("审批通过请假(ID:%d)", id))
 	response.OK(c, nil)
 }
 
@@ -127,6 +132,7 @@ func (h *Leave) Reject(c *gin.Context) {
 		h.handleActionError(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "leave", "reject", fmt.Sprintf("leave:%d", id), fmt.Sprintf("驳回请假(ID:%d)", id))
 	response.OK(c, nil)
 }
 
@@ -141,6 +147,7 @@ func (h *Leave) Cancel(c *gin.Context) {
 		h.handleActionError(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "leave", "cancel", fmt.Sprintf("leave:%d", id), fmt.Sprintf("取消请假(ID:%d)", id))
 	response.OK(c, nil)
 }
 

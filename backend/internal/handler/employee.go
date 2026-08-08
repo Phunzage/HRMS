@@ -2,9 +2,11 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"hrms/backend/internal/middleware"
 	"hrms/backend/internal/response"
@@ -14,11 +16,12 @@ import (
 // Employee 员工处理器
 type Employee struct {
 	service *service.EmployeeService
+	db      *gorm.DB
 }
 
 // NewEmployee 创建员工处理器
-func NewEmployee(svc *service.EmployeeService) *Employee {
-	return &Employee{service: svc}
+func NewEmployee(svc *service.EmployeeService, db *gorm.DB) *Employee {
+	return &Employee{service: svc, db: db}
 }
 
 // List 员工分页列表
@@ -93,6 +96,7 @@ func (h *Employee) Create(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "employee", "create", fmt.Sprintf("employee:%d", result.Employee.ID), fmt.Sprintf("创建员工 %s %s", result.Employee.Name, result.Employee.EmpNo))
 	response.OK(c, result)
 }
 
@@ -103,6 +107,7 @@ func (h *Employee) Update(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, 400, "参数错误")
 		return
 	}
+	name := h.empNameOf(id)
 	var req service.UpdateEmployeeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, http.StatusBadRequest, 400, "参数错误")
@@ -121,6 +126,7 @@ func (h *Employee) Update(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "employee", "update", fmt.Sprintf("employee:%d", id), fmt.Sprintf("更新员工 %s", name))
 	response.OK(c, nil)
 }
 
@@ -131,6 +137,7 @@ func (h *Employee) Delete(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, 400, "参数错误")
 		return
 	}
+	name := h.empNameOf(id)
 	if err := h.service.Delete(id); err != nil {
 		switch {
 		case errors.Is(err, service.ErrEmpNotFound):
@@ -140,5 +147,14 @@ func (h *Employee) Delete(c *gin.Context) {
 		}
 		return
 	}
+	middleware.Record(h.db, c, "employee", "delete", fmt.Sprintf("employee:%d", id), fmt.Sprintf("删除员工 %s", name))
 	response.OK(c, nil)
+}
+
+// empNameOf 尽力获取员工姓名用于审计描述，获取失败时返回空串
+func (h *Employee) empNameOf(id uint) string {
+	if emp, err := h.service.GetByID(id); err == nil {
+		return emp.Name
+	}
+	return ""
 }

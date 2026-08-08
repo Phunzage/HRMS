@@ -2,9 +2,11 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
 	"hrms/backend/internal/middleware"
 	"hrms/backend/internal/response"
@@ -14,11 +16,12 @@ import (
 // Salary 工资处理器
 type Salary struct {
 	service *service.SalaryService
+	db      *gorm.DB
 }
 
 // NewSalary 创建工资处理器
-func NewSalary(svc *service.SalaryService) *Salary {
-	return &Salary{service: svc}
+func NewSalary(svc *service.SalaryService, db *gorm.DB) *Salary {
+	return &Salary{service: svc, db: db}
 }
 
 // List 工资单分页列表（employee 角色仅看自己）
@@ -48,6 +51,7 @@ func (h *Salary) Create(c *gin.Context) {
 		h.handleErr(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "salary", "create", fmt.Sprintf("salary:%d", record.ID), fmt.Sprintf("创建工资单 员工ID:%d 月份:%s", record.EmployeeID, record.Month))
 	response.OK(c, record)
 }
 
@@ -68,6 +72,7 @@ func (h *Salary) Update(c *gin.Context) {
 		h.handleErr(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "salary", "update", fmt.Sprintf("salary:%d", record.ID), fmt.Sprintf("更新工资单 员工ID:%d 月份:%s", record.EmployeeID, record.Month))
 	response.OK(c, record)
 }
 
@@ -82,6 +87,7 @@ func (h *Salary) Confirm(c *gin.Context) {
 		h.handleErr(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "salary", "confirm", fmt.Sprintf("salary:%d", id), fmt.Sprintf("确认工资单(ID:%d)", id))
 	response.OK(c, nil)
 }
 
@@ -96,6 +102,7 @@ func (h *Salary) Pay(c *gin.Context) {
 		h.handleErr(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "salary", "pay", fmt.Sprintf("salary:%d", id), fmt.Sprintf("发放工资(ID:%d)", id))
 	response.OK(c, nil)
 }
 

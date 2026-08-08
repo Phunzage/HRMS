@@ -53,6 +53,18 @@ func NewDepartmentService(repo *repository.DepartmentRepo) *DepartmentService {
 	return &DepartmentService{repo: repo}
 }
 
+// GetByID 查询部门，供处理器拼接审计描述等场景使用
+func (s *DepartmentService) GetByID(id uint) (*models.Department, error) {
+	dept, err := s.repo.FindByID(id)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, ErrDeptNotFound
+		}
+		return nil, err
+	}
+	return dept, nil
+}
+
 // ListTree 返回部门树形列表（一次性返回全部，前端组树）
 func (s *DepartmentService) ListTree() ([]*DepartmentNode, error) {
 	depts, err := s.repo.FindAll()

@@ -2,10 +2,13 @@ package handler
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"gorm.io/gorm"
 
+	"hrms/backend/internal/middleware"
 	"hrms/backend/internal/response"
 	"hrms/backend/internal/service"
 )
@@ -13,11 +16,12 @@ import (
 // Recruitment 招聘处理器
 type Recruitment struct {
 	service *service.RecruitmentService
+	db      *gorm.DB
 }
 
 // NewRecruitment 创建招聘处理器
-func NewRecruitment(svc *service.RecruitmentService) *Recruitment {
-	return &Recruitment{service: svc}
+func NewRecruitment(svc *service.RecruitmentService, db *gorm.DB) *Recruitment {
+	return &Recruitment{service: svc, db: db}
 }
 
 // JobList 招聘职位分页列表
@@ -45,6 +49,7 @@ func (h *Recruitment) JobCreate(c *gin.Context) {
 		h.handleErr(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "recruitment", "create", fmt.Sprintf("job:%d", job.ID), fmt.Sprintf("创建招聘职位 %s", job.Title))
 	response.OK(c, job)
 }
 
@@ -65,6 +70,7 @@ func (h *Recruitment) JobUpdate(c *gin.Context) {
 		h.handleErr(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "recruitment", "update", fmt.Sprintf("job:%d", job.ID), fmt.Sprintf("更新招聘职位 %s", job.Title))
 	response.OK(c, job)
 }
 
@@ -79,6 +85,7 @@ func (h *Recruitment) JobDelete(c *gin.Context) {
 		h.handleErr(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "recruitment", "delete", fmt.Sprintf("job:%d", id), fmt.Sprintf("删除招聘职位(ID:%d)", id))
 	response.OK(c, nil)
 }
 
@@ -107,6 +114,7 @@ func (h *Recruitment) CandidateCreate(c *gin.Context) {
 		h.handleErr(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "recruitment", "create", fmt.Sprintf("candidate:%d", candidate.ID), fmt.Sprintf("添加候选人 %s", candidate.Name))
 	response.OK(c, candidate)
 }
 
@@ -127,6 +135,7 @@ func (h *Recruitment) CandidateUpdate(c *gin.Context) {
 		h.handleErr(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "recruitment", "update", fmt.Sprintf("candidate:%d", candidate.ID), fmt.Sprintf("更新候选人 %s", candidate.Name))
 	response.OK(c, candidate)
 }
 
@@ -141,6 +150,7 @@ func (h *Recruitment) CandidateDelete(c *gin.Context) {
 		h.handleErr(c, err)
 		return
 	}
+	middleware.Record(h.db, c, "recruitment", "delete", fmt.Sprintf("candidate:%d", id), fmt.Sprintf("删除候选人(ID:%d)", id))
 	response.OK(c, nil)
 }
 
