@@ -28,6 +28,11 @@
 | M15 | 薪酬批量生成+考勤月报+数据范围 | prompts/batch16_batch_month_scope.md | ✅ 完成 | 18:12 |
 | M16 | 公告管理+绩效管理 | prompts/batch17_announcement_performance.md | ✅ 完成 | 18:16 |
 | M17 | 前端新功能(通知/补卡/公告/绩效/月报/暗色) | prompts/batch18_frontend_new_features.md | ✅ 完成 | 18:25 |
+| M18 | 修复误跳登录+乱码数据 | prompts/batch19_fix_bugs.md | ✅ 完成 | 19:35 |
+| M19 | 修复审批后黑屏(空列表null) | prompts/batch20_fix_black_screen.md | ✅ 完成 | 19:56 |
+| M20 | 仪表盘刷新+通用审批流引擎 | prompts/batch21_approval_engine.md | ✅ 完成 | 21:20 |
+| M21 | 补卡迁移+admin/hr职责分离 | prompts/batch22_correction_rbac.md | ✅ 完成 | 21:40 |
+| M22 | 统一待办中心+审批进度时间线 | prompts/batch23_approval_frontend.md | ✅ 完成 | 21:55 |
 
 ## 已确认的环境
 
@@ -64,6 +69,17 @@
 - **批次16** ✅ 通过（Claude 达 max-turns 后由架构师补完验证）：薪酬批量生成（复制最近工资单金额、返回 generated/skipped）；考勤月报（按人汇总出勤/迟到/早退/旷工/请假）；数据范围权限（hr 绑定负责部门后列表仅见该部门及子孙部门，实测 hr 见 6 人/admin 见 8 人）。
 - **批次17** ✅ 通过：公告管理（置顶/搜索/发布/草稿）；绩效管理（评分→S/A/B/C/D 自动映射、draft→submitted→approved 状态流、唯一约束、经理仅本部门）；权限矩阵全验证。
 - **批次18** ✅ 通过：前端全部新功能（登录验证码、顶栏通知铃铛+30s 轮询、补卡 Tab、公告页、绩效页、批量生成按钮、考勤月报、个人中心头像上传、暗色模式持久化）；浏览器实测：仪表盘新菜单/铃铛下拉/暗色切换（data-theme=dark 持久化）/公告页/绩效页评级与状态流全部正常；架构师修复「员工自助换头像 403」——新增 `PUT /employees/me/avatar` 自助接口（无需 employee:write），前端改调新接口。
+- **批次19** ✅ 通过：修复「点击功能误跳登录」（根因：axios 拦截器对一切 HTTP 错误无条件登出，改为仅 401 登出）+ manager 补 position:read + 8 页面下拉容错 + 清理全库乱码数据（员工改名/公告删除，U+FFFD 扫描归零）。
+- **批次20** ✅ 通过：修复「批准最后一条请假后黑屏」（根因：后端空列表返回 list:null + 前端 setTodo(null) + LeaveTable list.map 崩溃 + 无 ErrorBoundary）。三层修复：14 个 repository var→make 初始化返回 []、前端列表 `?? []` 兜底、全局 ErrorBoundary；浏览器实测批准后零错误可导航。
+- **批次21** ✅ 通过：通用审批流引擎（ApprovalFlow/Step/Instance/Task 四模型 + StartApproval/ApproveTask/RejectTask/CancelApproval + 业务回调事务分发）；请假迁移为固定两级「部门经理→HR终审」；完整链路验证（提交→经理→hr→approved 联动余额/考勤/通知；驳回/取消/越权 403/边界 400 全通过）。
+- **批次22** ✅ 通过：补卡迁移审批引擎；**admin/hr 职责分离**（admin=系统管理+业务只读，hr=业务读写、移除用户/角色/审计权限）；中间件移除 admin 无条件放行；前端各页按钮按角色显隐；权限矩阵实测（hr 访问 /users 403、admin 写业务 403）。
+- **批次23** ✅ 通过：前端统一待办中心 /approvals（待我审批/我处理的）+ ApprovalTimeline 审批进度时间线 + 请假/补卡页行内进度展开；全链路 16 项实测 PASS；仪表盘增加手动刷新按钮+窗口聚焦自动刷新（修复 hr 删岗位后仪表盘数字不变）。
+
+## 三轮增强完成情况
+
+- 审批流：单级 → **通用审批流引擎**（固定两级：部门经理→HR终审），请假/补卡统一走引擎，通知与审批人一致，进度可追踪
+- 权限：admin/hr 职责分离（admin=系统配置+业务只读，hr=人事业务读写）
+- 修复：误跳登录、黑屏、乱码、仪表盘不刷新共 4 个体验 bug
 
 ## 二轮增强完成情况
 
