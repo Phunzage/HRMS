@@ -9,6 +9,9 @@ import {
   Wallet,
   Megaphone,
   UserCircle,
+  UserCog,
+  ShieldCheck,
+  ScrollText,
 } from 'lucide-react'
 import { useAuthStore } from '../store/auth'
 import ToastContainer from '../components/Toast'
@@ -26,6 +29,13 @@ const menuItems = [
   { to: '/profile', label: '个人中心', icon: UserCircle, roles: ['admin', 'hr', 'manager', 'employee'] },
 ]
 
+// 系统管理分组菜单：用户管理 / 角色管理 / 审计日志
+const systemMenuItems = [
+  { to: '/users', label: '用户管理', icon: UserCog, roles: ['admin', 'hr'] },
+  { to: '/roles', label: '角色管理', icon: ShieldCheck, roles: ['admin'] },
+  { to: '/audit-logs', label: '审计日志', icon: ScrollText, roles: ['admin', 'hr'] },
+]
+
 // 角色编码 → 中文名称
 const roleNames: Record<string, string> = {
   admin: '管理员',
@@ -41,6 +51,7 @@ export default function MainLayout() {
 
   // 按角色过滤菜单
   const visibleMenu = menuItems.filter((item) => !user?.role_code || item.roles.includes(user.role_code))
+  const visibleSystem = systemMenuItems.filter((item) => !user?.role_code || item.roles.includes(user.role_code))
 
   const handleLogout = () => {
     logout()
@@ -68,6 +79,22 @@ export default function MainLayout() {
               </NavLink>
             </li>
           ))}
+          {visibleSystem.length > 0 && (
+            <>
+              <li className="menu-title mt-2">系统管理</li>
+              {visibleSystem.map((item) => (
+                <li key={item.to}>
+                  <NavLink
+                    to={item.to}
+                    className={({ isActive }) => (isActive ? 'active' : '')}
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.label}
+                  </NavLink>
+                </li>
+              ))}
+            </>
+          )}
         </ul>
       </aside>
 
