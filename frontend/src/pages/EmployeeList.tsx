@@ -59,7 +59,8 @@ const emptyForm: EmployeeForm = {
 
 export default function EmployeeList() {
   const role = useAuthStore((s) => s.user?.role_code)
-  const canManage = role === 'admin' || role === 'hr'
+  // 业务写操作仅 hr（admin 只读监督，manager 仅浏览本部门）
+  const canManage = role === 'hr'
 
   // 列表查询条件
   const [keyword, setKeyword] = useState('')

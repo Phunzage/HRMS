@@ -24,11 +24,6 @@ func NewAttendanceCorrection(svc *service.AttendanceCorrectionService, db *gorm.
 	return &AttendanceCorrection{service: svc, db: db}
 }
 
-// rejectCorrectionRequest 驳回补卡请求体
-type rejectCorrectionRequest struct {
-	RejectReason string `json:"reject_reason" binding:"required"`
-}
-
 // Create 员工提交补卡申请
 func (h *AttendanceCorrection) Create(c *gin.Context) {
 	var req service.SubmitCorrectionRequest
@@ -85,42 +80,7 @@ func (h *AttendanceCorrection) Mine(c *gin.Context) {
 	response.PageOK(c, items, total, page, pageSize)
 }
 
-// Approve 审批通过补卡申请
-func (h *AttendanceCorrection) Approve(c *gin.Context) {
-	id, err := parseID(c)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, 400, "参数错误")
-		return
-	}
-	if err := h.service.Approve(middleware.GetRoleCode(c), middleware.GetUserID(c), id); err != nil {
-		h.handleActionError(c, err)
-		return
-	}
-	middleware.Record(h.db, c, "attendance", "approve", fmt.Sprintf("correction:%d", id), fmt.Sprintf("审批通过补卡(ID:%d)", id))
-	response.OK(c, nil)
-}
-
-// Reject 驳回补卡申请
-func (h *AttendanceCorrection) Reject(c *gin.Context) {
-	id, err := parseID(c)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, 400, "参数错误")
-		return
-	}
-	var req rejectCorrectionRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, 400, "参数错误")
-		return
-	}
-	if err := h.service.Reject(middleware.GetRoleCode(c), middleware.GetUserID(c), id, req.RejectReason); err != nil {
-		h.handleActionError(c, err)
-		return
-	}
-	middleware.Record(h.db, c, "attendance", "reject", fmt.Sprintf("correction:%d", id), fmt.Sprintf("驳回补卡(ID:%d)", id))
-	response.OK(c, nil)
-}
-
-// Cancel 申请人取消 pending 补卡申请
+// Cancel 申请人取消 pending 补卡申请（同事务取消补卡单 + 审批实例）
 func (h *AttendanceCorrection) Cancel(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -135,17 +95,19 @@ func (h *AttendanceCorrection) Cancel(c *gin.Context) {
 	response.OK(c, nil)
 }
 
-// handleActionError 审批/取消类动作的通用错误映射
+// handleActionError 取消类动作的通用错误映射
 func (h *AttendanceCorrection) handleActionError(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, service.ErrCorrNotFound):
+	case errors.Is(err, service.ErrCorrNotFound),
+		errors.Is(err, service.ErrApprovalInstanceNotFound):
 		response.Error(c, http.StatusNotFound, 404, err.Error())
 	case errors.Is(err, service.ErrCorrEmpNoUser):
 		response.Error(c, http.StatusBadRequest, 400, err.Error())
-	case errors.Is(err, service.ErrCorrNotApprover),
-		errors.Is(err, service.ErrCorrNotOwner):
+	case errors.Is(err, service.ErrCorrNotOwner),
+		errors.Is(err, service.ErrApprovalNotAllowed):
 		response.Error(c, http.StatusForbidden, 403, err.Error())
-	case errors.Is(err, service.ErrCorrNotPending):
+	case errors.Is(err, service.ErrCorrNotPending),
+		errors.Is(err, service.ErrApprovalNotPending):
 		response.Error(c, http.StatusBadRequest, 400, err.Error())
 	default:
 		response.Error(c, http.StatusInternalServerError, 500, "操作失败")

@@ -68,7 +68,8 @@ type TabKey = 'jobs' | 'candidates'
 
 export default function RecruitmentPage() {
   const role = useAuthStore((s) => s.user?.role_code)
-  const canManage = role === 'admin' || role === 'hr'
+  // 招聘增删改仅 hr（admin 只读监督）
+  const canManage = role === 'hr'
 
   const [activeTab, setActiveTab] = useState<TabKey>('jobs')
 

@@ -53,9 +53,10 @@ const emptyForm: PerfForm = {
 
 export default function PerformancePage() {
   const role = useAuthStore((s) => s.user?.role_code)
-  // 操作权限：employee 只读；manager 可建/改/提交/删（不可批准）
-  const canOperate = role === 'admin' || role === 'hr' || role === 'manager'
-  const canApprove = role === 'admin' || role === 'hr'
+  // 操作权限：employee/admin 只读；hr 可建/改/提交/删/批准；manager 可建/改/提交/删（不可批准）
+  const canOperate = role === 'hr' || role === 'manager'
+  const canApprove = role === 'hr'
+  // 员工筛选下拉为只读功能，admin 仍可浏览过滤
   const canFilterEmployee = role === 'admin' || role === 'hr'
 
   const [period, setPeriod] = useState('')
@@ -101,12 +102,12 @@ export default function PerformancePage() {
   }, [period, status, employeeId, page, reloadKey])
 
   useEffect(() => {
-    if (!canOperate) return
+    if (!canFilterEmployee) return
     // 非关键筛选下拉：员工列表加载失败时静默降级为空数组
     fetchAllEmployees()
       .then((res) => setEmployees(res.list ?? []))
       .catch(() => setEmployees([]))
-  }, [canOperate])
+  }, [canFilterEmployee])
 
   const reload = () => setReloadKey((k) => k + 1)
 

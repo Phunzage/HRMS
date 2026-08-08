@@ -61,13 +61,9 @@ func JWTAuth(secret string) gin.HandlerFunc {
 	}
 }
 
-// RequirePermission 校验当前角色是否拥有指定权限点，admin 角色直接放行
+// RequirePermission 校验当前角色是否拥有指定权限点（admin 与普通角色一致查 role_permissions，业务只读对 admin 生效）
 func RequirePermission(db *gorm.DB, code string) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if GetRoleCode(c) == "admin" {
-			c.Next()
-			return
-		}
 		// 查询角色
 		var role models.Role
 		if err := db.Where("code = ?", GetRoleCode(c)).First(&role).Error; err != nil {

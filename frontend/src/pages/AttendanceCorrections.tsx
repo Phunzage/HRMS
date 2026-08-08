@@ -38,8 +38,9 @@ const emptyForm: CorrectionForm = {
 export default function AttendanceCorrections() {
   const user = useAuthStore((s) => s.user)
   const role = user?.role_code
-  // admin/hr/manager 可审批；员工仅看自己
-  const canApprove = role === 'admin' || role === 'hr' || role === 'manager'
+  // 审批/全部列表可见角色：hr/manager 可审批；admin 只读浏览；员工仅看自己
+  const canBrowse = role === 'admin' || role === 'hr' || role === 'manager'
+  const canApprove = role === 'hr' || role === 'manager'
   const canSubmit = !!user?.employee_id
 
   // 审批列表（admin/hr/manager）
@@ -69,7 +70,7 @@ export default function AttendanceCorrections() {
 
   // 审批/全部列表
   useEffect(() => {
-    if (!canApprove) return
+    if (!canBrowse) return
     let cancelled = false
     setAllLoading(true)
     setAllError('')
@@ -90,11 +91,11 @@ export default function AttendanceCorrections() {
     return () => {
       cancelled = true
     }
-  }, [canApprove, allStatus, allPage, reloadKey])
+  }, [canBrowse, allStatus, allPage, reloadKey])
 
   // 我的补卡记录
   useEffect(() => {
-    if (canApprove) return
+    if (canBrowse) return
     let cancelled = false
     setMineLoading(true)
     setMineError('')
@@ -111,7 +112,7 @@ export default function AttendanceCorrections() {
     return () => {
       cancelled = true
     }
-  }, [canApprove, minePage, reloadKey])
+  }, [canBrowse, minePage, reloadKey])
 
   const reload = () => setReloadKey((k) => k + 1)
 
@@ -183,7 +184,7 @@ export default function AttendanceCorrections() {
       {/* 工具栏 */}
       <div className="card bg-base-100 shadow-sm">
         <div className="card-body flex flex-row flex-wrap items-end gap-3 p-4">
-          {canApprove && (
+          {canBrowse && (
             <label className="form-control w-32">
               <div className="label">
                 <span className="label-text">状态</span>
@@ -217,7 +218,7 @@ export default function AttendanceCorrections() {
       {/* 列表 */}
       <div className="card bg-base-100 shadow-sm">
         <div className="card-body p-4">
-          {canApprove ? (
+          {canBrowse ? (
             allError ? (
               <div className="alert alert-error">
                 <span>{allError}</span>
@@ -233,21 +234,25 @@ export default function AttendanceCorrections() {
                   showApplicant
                   actions={(item) =>
                     item.status === 'pending' ? (
-                      <div className="flex justify-end gap-1">
-                        <button type="button" className="btn btn-success btn-xs" onClick={() => handleApprove(item)}>
-                          通过
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost btn-xs text-error"
-                          onClick={() => {
-                            setRejectTarget(item)
-                            setRejectReason('')
-                          }}
-                        >
-                          驳回
-                        </button>
-                      </div>
+                      canApprove ? (
+                        <div className="flex justify-end gap-1">
+                          <button type="button" className="btn btn-success btn-xs" onClick={() => handleApprove(item)}>
+                            通过
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-xs text-error"
+                            onClick={() => {
+                              setRejectTarget(item)
+                              setRejectReason('')
+                            }}
+                          >
+                            驳回
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-base-content/40">-</span>
+                      )
                     ) : (
                       <span className="text-xs text-base-content/40">{item.reject_reason || '-'}</span>
                     )

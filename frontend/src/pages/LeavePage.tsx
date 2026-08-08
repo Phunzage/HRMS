@@ -45,6 +45,8 @@ export default function LeavePage() {
   const role = user?.role_code
   const showTodo = role === 'admin' || role === 'hr' || role === 'manager'
   const showAll = role === 'admin' || role === 'hr'
+  // 审批动作仅 hr/manager（admin 只读监督，可查看待办但不可操作）
+  const canApprove = role === 'hr' || role === 'manager'
 
   // admin/hr 无个人员工档案，默认落在「全部申请」
   const [activeTab, setActiveTab] = useState<TabKey>(showAll ? 'all' : 'mine')
@@ -313,23 +315,27 @@ export default function LeavePage() {
               <LeaveTable
                 list={todo}
                 columns={['申请人', '部门', '类型', '开始', '结束', '天数', '事由', '状态']}
-                actions={(l) => (
-                  <div className="flex justify-end gap-1">
-                    <button type="button" className="btn btn-success btn-xs" onClick={() => handleApprove(l)}>
-                      通过
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost btn-xs text-error"
-                      onClick={() => {
-                        setRejectTarget(l)
-                        setRejectReason('')
-                      }}
-                    >
-                      驳回
-                    </button>
-                  </div>
-                )}
+                actions={(l) =>
+                  canApprove ? (
+                    <div className="flex justify-end gap-1">
+                      <button type="button" className="btn btn-success btn-xs" onClick={() => handleApprove(l)}>
+                        通过
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost btn-xs text-error"
+                        onClick={() => {
+                          setRejectTarget(l)
+                          setRejectReason('')
+                        }}
+                      >
+                        驳回
+                      </button>
+                    </div>
+                  ) : (
+                    <span className="text-xs text-base-content/40">-</span>
+                  )
+                }
               />
             )
           ) : listLoading ? (

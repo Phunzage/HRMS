@@ -37,7 +37,8 @@ const emptyForm: PositionForm = {
 
 export default function PositionPage() {
   const role = useAuthStore((s) => s.user?.role_code)
-  const canManage = role === 'admin' || role === 'hr'
+  // 岗位增删改仅 hr（admin 只读监督）
+  const canManage = role === 'hr'
 
   const [keyword, setKeyword] = useState('')
   const [searchInput, setSearchInput] = useState('')

@@ -32,7 +32,8 @@ const emptyForm: AnnouncementForm = {
 
 export default function AnnouncementsPage() {
   const role = useAuthStore((s) => s.user?.role_code)
-  const canManage = role === 'admin' || role === 'hr'
+  // 公告增删改仅 hr（admin 只读监督）
+  const canManage = role === 'hr'
 
   const [keyword, setKeyword] = useState('')
   const [search, setSearch] = useState('')

@@ -45,7 +45,10 @@ const emptyForm: SalaryForm = {
 
 export default function SalaryPage() {
   const role = useAuthStore((s) => s.user?.role_code)
-  const canManage = role === 'admin' || role === 'hr'
+  // 工资单增改/批量生成仅 hr（admin 只读监督）
+  const canManage = role === 'hr'
+  // 员工筛选下拉为只读功能，admin 仍可浏览过滤
+  const canFilter = role === 'admin' || role === 'hr'
 
   const [month, setMonth] = useState(currentMonth())
   const [employeeId, setEmployeeId] = useState('')
@@ -95,12 +98,12 @@ export default function SalaryPage() {
   }, [month, employeeId, status, page, reloadKey])
 
   useEffect(() => {
-    if (!canManage) return
+    if (!canFilter) return
     // 非关键筛选下拉：员工列表加载失败时静默降级为空数组
     fetchAllEmployees()
       .then((res) => setEmployees(res.list ?? []))
       .catch(() => setEmployees([]))
-  }, [canManage])
+  }, [canFilter])
 
   const reload = () => setReloadKey((k) => k + 1)
 
@@ -210,7 +213,7 @@ export default function SalaryPage() {
               }}
             />
           </label>
-          {canManage && (
+          {canFilter && (
             <label className="form-control w-44">
               <div className="label">
                 <span className="label-text">员工</span>

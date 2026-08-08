@@ -46,11 +46,11 @@ const menuItems = [
   { to: '/profile', label: '个人中心', icon: UserCircle, roles: ['admin', 'hr', 'manager', 'employee'] },
 ]
 
-// 系统管理分组菜单：用户管理 / 角色管理 / 审计日志
+// 系统管理分组菜单：用户管理 / 角色管理 / 审计日志（仅 admin，hr 为业务管理员不涉系统配置）
 const systemMenuItems = [
-  { to: '/users', label: '用户管理', icon: UserCog, roles: ['admin', 'hr'] },
+  { to: '/users', label: '用户管理', icon: UserCog, roles: ['admin'] },
   { to: '/roles', label: '角色管理', icon: ShieldCheck, roles: ['admin'] },
-  { to: '/audit-logs', label: '审计日志', icon: ScrollText, roles: ['admin', 'hr'] },
+  { to: '/audit-logs', label: '审计日志', icon: ScrollText, roles: ['admin'] },
 ]
 
 // 角色编码 → 中文名称

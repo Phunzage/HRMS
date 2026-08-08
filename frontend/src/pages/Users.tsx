@@ -51,7 +51,8 @@ function StatusCell({ status }: { status: number }) {
 
 export default function UsersPage() {
   const role = useAuthStore((s) => s.user?.role_code)
-  const canManage = role === 'admin' || role === 'hr'
+  // 用户管理仅 admin（hr 为业务管理员，无 user 权限）
+  const canManage = role === 'admin'
 
   // 筛选条件
   const [keyword, setKeyword] = useState('')

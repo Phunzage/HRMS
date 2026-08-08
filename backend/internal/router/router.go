@@ -50,7 +50,7 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	correctionRepo := repository.NewAttendanceCorrectionRepo(db)
 	notificationRepo := repository.NewNotificationRepo(db)
 	notificationService := service.NewNotificationService(notificationRepo, empRepo)
-	correctionService := service.NewAttendanceCorrectionService(correctionRepo, attendanceRepo, empRepo, notificationService)
+	correctionService := service.NewAttendanceCorrectionService(db, correctionRepo, empRepo)
 	correctionHandler := handler.NewAttendanceCorrection(correctionService, db)
 
 	// 站内通知模块
@@ -61,9 +61,10 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	leaveService := service.NewLeaveService(db, leaveRepo, empRepo)
 	leaveHandler := handler.NewLeave(leaveService, db)
 
-	// 通用审批流模块（请假已迁移；补卡下一批次迁移）
+	// 通用审批流模块（请假/补卡均已迁移，终审回调按业务类型注册）
 	approvalHandler := handler.NewApproval(db, map[string]service.ApprovalBizCallback{
-		"leave": leaveService,
+		"leave":                 leaveService,
+		"attendance_correction": correctionService,
 	})
 
 	// 薪酬模块
@@ -166,13 +167,12 @@ func Register(r *gin.Engine, db *gorm.DB) {
 				attendance.POST("/check-out", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.CheckOut)
 				attendance.POST("/manual", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.Manual)
 				// 补卡申请（静态段必须先于 :id 注册，否则 corrections 会被当作 id 捕获）
+				// 审批动作已迁移至 /approvals 通用接口，此处仅保留提交/列表/取消
 				corrections := attendance.Group("/corrections")
 				{
 					corrections.POST("", middleware.RequirePermission(db, "attendance:write"), correctionHandler.Create)
 					corrections.GET("", middleware.RequirePermission(db, "attendance:read"), correctionHandler.List)
 					corrections.GET("/mine", correctionHandler.Mine)
-					corrections.PUT("/:id/approve", middleware.RequirePermission(db, "attendance:write"), correctionHandler.Approve)
-					corrections.PUT("/:id/reject", middleware.RequirePermission(db, "attendance:write"), correctionHandler.Reject)
 					corrections.PUT("/:id/cancel", correctionHandler.Cancel)
 				}
 				attendance.PUT("/:id", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.Update)

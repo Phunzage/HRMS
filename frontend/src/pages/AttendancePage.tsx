@@ -45,7 +45,10 @@ const emptyForm: AttForm = {
 export default function AttendancePage() {
   const user = useAuthStore((s) => s.user)
   const role = user?.role_code
-  const canManage = role === 'admin' || role === 'hr'
+  // 补录/编辑/删除仅 hr（admin 只读监督）
+  const canManage = role === 'hr'
+  // 员工筛选下拉为只读功能，admin 仍可浏览过滤
+  const canFilter = role === 'admin' || role === 'hr'
   // 打卡自助需关联员工档案
   const canCheck = !!user?.employee_id
   // 考勤月报仅 admin/hr/manager 可见
@@ -102,11 +105,11 @@ export default function AttendancePage() {
 
   // 加载员工下拉（admin/hr）；非关键筛选下拉加载失败时静默降级为空数组
   useEffect(() => {
-    if (!canManage) return
+    if (!canFilter) return
     fetchAllEmployees()
       .then((res) => setEmployees(res.list ?? []))
       .catch(() => setEmployees([]))
-  }, [canManage])
+  }, [canFilter])
 
   const reload = () => setReloadKey((k) => k + 1)
 
@@ -232,7 +235,7 @@ export default function AttendancePage() {
               }}
             />
           </label>
-          {canManage && (
+          {canFilter && (
             <label className="form-control w-44">
               <div className="label">
                 <span className="label-text">员工</span>

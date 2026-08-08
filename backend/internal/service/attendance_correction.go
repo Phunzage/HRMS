@@ -21,7 +21,6 @@ var (
 	ErrCorrDateFuture     = errors.New("补卡日期不得晚于今天")
 	ErrCorrTimeBad        = errors.New("补卡时间格式错误，应为 HH:MM")
 	ErrCorrReasonRequired = errors.New("补卡原因不能为空")
-	ErrCorrNotApprover    = errors.New("无权限审批该补卡申请")
 	ErrCorrNotOwner       = errors.New("只能操作自己的补卡申请")
 	ErrCorrNotPending     = repository.ErrCorrectionNotPending
 )
@@ -42,23 +41,21 @@ type SubmitCorrectionRequest struct {
 
 // AttendanceCorrectionService 补卡申请业务服务
 type AttendanceCorrectionService struct {
+	db       *gorm.DB // 数据范围解析与事务用
 	corrRepo *repository.AttendanceCorrectionRepo
-	attRepo  *repository.AttendanceRepo
 	empRepo  *repository.EmployeeRepo
-	notif    *NotificationService
 }
 
 // NewAttendanceCorrectionService 创建补卡申请服务
 func NewAttendanceCorrectionService(
+	db *gorm.DB,
 	corrRepo *repository.AttendanceCorrectionRepo,
-	attRepo *repository.AttendanceRepo,
 	empRepo *repository.EmployeeRepo,
-	notif *NotificationService,
 ) *AttendanceCorrectionService {
-	return &AttendanceCorrectionService{corrRepo: corrRepo, attRepo: attRepo, empRepo: empRepo, notif: notif}
+	return &AttendanceCorrectionService{db: db, corrRepo: corrRepo, empRepo: empRepo}
 }
 
-// Create 提交补卡申请：校验日期范围与类型，自动匹配部门经理作为审批人，无经理则直接通过并应用考勤修正
+// Create 提交补卡申请：校验日期范围与类型，创建补卡单并启动审批流程（部门经理 → HR 终审）
 func (s *AttendanceCorrectionService) Create(userID uint, req SubmitCorrectionRequest) (*models.AttendanceCorrection, error) {
 	empID, err := s.requireEmployee(userID)
 	if err != nil {
@@ -94,31 +91,24 @@ func (s *AttendanceCorrectionService) Create(userID uint, req SubmitCorrectionRe
 		CorrectionTime: req.CorrectionTime,
 	}
 
-	// 自动匹配审批人：员工所属部门经理；找不到则直接审批通过（同时应用考勤修正）
+	// 兼容字段：记录部门经理（员工ID），仅作列表展示用，审批依据以审批引擎为准
 	managerID, err := s.corrRepo.FindManagerEmployeeID(empID)
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, err
-		}
-	}
-	if managerID != nil && *managerID > 0 {
-		cor.Status = "pending"
-		cor.ApproverID = managerID
-		if err := s.corrRepo.Create(cor); err != nil {
-			return nil, err
-		}
-		s.notifyCorrection(cor, "submit")
-		return cor, nil
-	}
-	// 无经理：直接审批通过并应用考勤修正（原子）
-	cor.Status = "approved"
-	now := time.Now()
-	cor.ApprovedAt = &now
-	patch, err := s.buildAttendancePatch(cor)
-	if err != nil {
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, err
 	}
-	if err := s.corrRepo.CreateAutoApproved(cor, patch); err != nil {
+	if managerID != nil && *managerID > 0 {
+		cor.ApproverID = managerID
+	}
+
+	// 事务：创建补卡单 + 启动审批流程（审批实例 + 步骤1经理任务 + 通知经理）
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		corrRepo := repository.NewAttendanceCorrectionRepo(tx)
+		if err := corrRepo.Create(cor); err != nil {
+			return err
+		}
+		_, err := StartApproval(tx, "attendance_correction", cor.ID, userID)
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	return cor, nil
@@ -142,51 +132,65 @@ func (s *AttendanceCorrectionService) Mine(userID uint, page, pageSize int) ([]r
 	return s.corrRepo.ListByEmployee(empID, "", page, pageSize)
 }
 
-// Approve 审批通过：校验权限 + 状态，同事务更新考勤并置 approved，通知申请人
-func (s *AttendanceCorrectionService) Approve(roleCode string, userID uint, id uint) error {
-	cor, err := s.corrRepo.FindByID(id)
-	if err != nil {
+// ApplyCorrectionApproved 补卡终审通过回调（事务内调用）：状态→approved + 更新对应考勤打卡时间并重算状态 + 通知申请人
+func (s *AttendanceCorrectionService) ApplyCorrectionApproved(tx *gorm.DB, correctionID uint) error {
+	corrRepo := repository.NewAttendanceCorrectionRepo(tx)
+	var cor models.AttendanceCorrection
+	if err := tx.First(&cor, correctionID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrCorrNotFound
 		}
 		return err
 	}
-	if err := s.checkApprover(roleCode, userID, cor); err != nil {
-		return err
+	if cor.Status != "pending" {
+		return ErrCorrNotPending
 	}
-	patch, err := s.buildAttendancePatch(cor)
+	patch, err := s.buildAttendancePatch(tx, &cor)
 	if err != nil {
 		return err
 	}
-	if err := s.corrRepo.Approve(id, patch); err != nil {
+	if err := corrRepo.Approve(correctionID, patch); err != nil {
 		return err
 	}
-	s.notifyCorrection(cor, "approve")
+	// 通知申请人审批通过
+	notifyCorrection(tx, &cor, "approve")
 	return nil
 }
 
-// Reject 驳回补卡申请：校验权限，置 rejected，通知申请人
-func (s *AttendanceCorrectionService) Reject(roleCode string, userID uint, id uint, reason string) error {
-	cor, err := s.corrRepo.FindByID(id)
-	if err != nil {
+// ApplyCorrectionRejected 补卡驳回回调（事务内调用）：状态→rejected + 通知申请人（含驳回原因）
+func (s *AttendanceCorrectionService) ApplyCorrectionRejected(tx *gorm.DB, correctionID uint, reason string) error {
+	corrRepo := repository.NewAttendanceCorrectionRepo(tx)
+	var cor models.AttendanceCorrection
+	if err := tx.First(&cor, correctionID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrCorrNotFound
 		}
 		return err
 	}
-	if err := s.checkApprover(roleCode, userID, cor); err != nil {
-		return err
+	if cor.Status != "pending" {
+		return ErrCorrNotPending
 	}
-	if err := s.corrRepo.Reject(id, reason); err != nil {
+	if err := corrRepo.Reject(correctionID, reason); err != nil {
 		return err
 	}
 	cor.Status = "rejected"
 	cor.RejectReason = reason
-	s.notifyCorrection(cor, "reject")
+	// 通知申请人驳回原因
+	notifyCorrection(tx, &cor, "reject")
 	return nil
 }
 
-// Cancel 申请人取消自己的 pending 补卡申请（登录即可）
+// ApplyApproved 实现审批终审回调接口：委托给补卡终审通过回调
+func (s *AttendanceCorrectionService) ApplyApproved(tx *gorm.DB, bizID uint) error {
+	return s.ApplyCorrectionApproved(tx, bizID)
+}
+
+// ApplyRejected 实现审批终审回调接口：委托给补卡驳回回调
+func (s *AttendanceCorrectionService) ApplyRejected(tx *gorm.DB, bizID uint, reason string) error {
+	return s.ApplyCorrectionRejected(tx, bizID, reason)
+}
+
+// Cancel 申请人取消自己的 pending 补卡申请：同事务取消补卡单 + 取消审批实例
 func (s *AttendanceCorrectionService) Cancel(userID uint, id uint) error {
 	cor, err := s.corrRepo.FindByID(id)
 	if err != nil {
@@ -195,6 +199,9 @@ func (s *AttendanceCorrectionService) Cancel(userID uint, id uint) error {
 		}
 		return err
 	}
+	if cor.Status != "pending" {
+		return ErrCorrNotPending
+	}
 	empID, err := s.requireEmployee(userID)
 	if err != nil {
 		return err
@@ -202,25 +209,21 @@ func (s *AttendanceCorrectionService) Cancel(userID uint, id uint) error {
 	if cor.EmployeeID != empID {
 		return ErrCorrNotOwner
 	}
-	return s.corrRepo.Cancel(id)
-}
-
-// checkApprover 审批权限校验：admin/hr 可审批；manager 必须是该申请审批人
-func (s *AttendanceCorrectionService) checkApprover(roleCode string, userID uint, cor *models.AttendanceCorrection) error {
-	if roleCode == "admin" || roleCode == "hr" {
-		return nil
-	}
-	if roleCode != "manager" {
-		return ErrCorrNotApprover
-	}
-	empID, err := s.requireEmployee(userID)
-	if err != nil {
-		return err
-	}
-	if cor.ApproverID == nil || *cor.ApproverID != empID {
-		return ErrCorrNotApprover
-	}
-	return nil
+	// 事务：取消补卡单 + 取消审批实例（保持状态一致）
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		corrRepo := repository.NewAttendanceCorrectionRepo(tx)
+		if err := corrRepo.Cancel(id); err != nil {
+			return err
+		}
+		inst, err := GetInstanceByBiz(tx, "attendance_correction", id)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil // 无审批实例（历史数据）则仅取消业务单
+			}
+			return err
+		}
+		return CancelApproval(tx, inst.ID, userID)
+	})
 }
 
 // buildScope 按角色构建列表访问范围
@@ -247,8 +250,8 @@ func (s *AttendanceCorrectionService) buildScope(roleCode string, userID uint) (
 	}
 }
 
-// buildAttendancePatch 根据补卡申请计算目标考勤打卡时间与重算状态（供审批通过/自动通过使用）
-func (s *AttendanceCorrectionService) buildAttendancePatch(cor *models.AttendanceCorrection) (repository.CorrectionAttendance, error) {
+// buildAttendancePatch 根据补卡申请计算目标考勤打卡时间与重算状态（供审批通过回调使用）
+func (s *AttendanceCorrectionService) buildAttendancePatch(tx *gorm.DB, cor *models.AttendanceCorrection) (repository.CorrectionAttendance, error) {
 	t, err := time.ParseInLocation("15:04", cor.CorrectionTime, time.Local)
 	if err != nil {
 		return repository.CorrectionAttendance{}, ErrCorrTimeBad
@@ -259,7 +262,8 @@ func (s *AttendanceCorrectionService) buildAttendancePatch(cor *models.Attendanc
 		t.Hour(), t.Minute(), 0, 0, time.Local)
 
 	workDate := cor.WorkDate.Format("2006-01-02")
-	att, err := s.attRepo.FindByEmployeeAndDate(cor.EmployeeID, workDate)
+	attRepo := repository.NewAttendanceRepo(tx)
+	att, err := attRepo.FindByEmployeeAndDate(cor.EmployeeID, workDate)
 	var checkIn, checkOut *time.Time
 	if err == nil {
 		checkIn = att.CheckIn
@@ -279,29 +283,18 @@ func (s *AttendanceCorrectionService) buildAttendancePatch(cor *models.Attendanc
 	}, nil
 }
 
-// notifyCorrection 补卡通知链路：提交→通知审批人；审批通过/驳回→通知申请人
-func (s *AttendanceCorrectionService) notifyCorrection(cor *models.AttendanceCorrection, action string) {
+// notifyCorrection 补卡通知链路：审批通过/驳回→通知申请人（事务内调用，通知随业务同事务提交）
+func notifyCorrection(tx *gorm.DB, cor *models.AttendanceCorrection, action string) {
 	dateStr := cor.WorkDate.Format("2006-01-02")
+	notif := NewNotificationService(repository.NewNotificationRepo(tx), repository.NewEmployeeRepo(tx))
 	switch action {
-	case "submit":
-		if cor.ApproverID == nil || *cor.ApproverID == 0 {
-			return
-		}
-		emp, err := s.empRepo.FindByID(cor.EmployeeID)
-		if err != nil {
-			return
-		}
-		s.notif.SendToEmployee(*cor.ApproverID, NotifTypeAttCorrection,
-			"新的补卡申请待审批",
-			fmt.Sprintf("%s 提交了%s补卡申请（%s %s）", emp.Name, correctionTypeNames[cor.CorrectionType], dateStr, cor.CorrectionTime),
-			"/attendance")
 	case "approve":
-		s.notif.SendToEmployee(cor.EmployeeID, NotifTypeAttCorrection,
+		notif.SendToEmployee(cor.EmployeeID, NotifTypeAttCorrection,
 			"补卡审批通过",
 			fmt.Sprintf("%s（%s %s）已通过", correctionTypeNames[cor.CorrectionType], dateStr, cor.CorrectionTime),
 			"/attendance")
 	case "reject":
-		s.notif.SendToEmployee(cor.EmployeeID, NotifTypeAttCorrection,
+		notif.SendToEmployee(cor.EmployeeID, NotifTypeAttCorrection,
 			"补卡审批驳回",
 			fmt.Sprintf("原因：%s", cor.RejectReason),
 			"/attendance")

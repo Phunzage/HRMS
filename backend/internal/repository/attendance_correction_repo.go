@@ -175,16 +175,6 @@ func (r *AttendanceCorrectionRepo) Cancel(id uint) error {
 	return nil
 }
 
-// CreateAutoApproved 无审批人时直接审批通过：事务内创建申请 + 应用考勤修正（原子）
-func (r *AttendanceCorrectionRepo) CreateAutoApproved(cor *models.AttendanceCorrection, att CorrectionAttendance) error {
-	return r.db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(cor).Error; err != nil {
-			return err
-		}
-		return applyCorrectionToAttendance(tx, cor, att)
-	})
-}
-
 // Approve 审批通过：事务内更新该员工 work_date 的考勤记录并置申请为 approved，任一环节失败整体回滚。
 // 仅 pending 状态可审批；att 为目标打卡时间与重算状态（仅使用与 correction_type 匹配的字段，避免误清空另一侧）。
 func (r *AttendanceCorrectionRepo) Approve(id uint, att CorrectionAttendance) error {

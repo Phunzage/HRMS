@@ -94,7 +94,8 @@ function DeptNode({ node, level, canManage, managerMap, onAdd, onEdit, onDelete 
 
 export default function DepartmentTree() {
   const role = useAuthStore((s) => s.user?.role_code)
-  const canManage = role === 'admin' || role === 'hr'
+  // 部门增删改仅 hr（admin 只读监督）
+  const canManage = role === 'hr'
 
   const [tree, setTree] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)

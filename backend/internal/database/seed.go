@@ -156,9 +156,20 @@ func seedPermissions(db *gorm.DB) error {
 	return nil
 }
 
-// seedRolePermissions 写入角色-权限关联（admin 拥有全部权限，中间件直接放行，无需建行）
+// seedRolePermissions 写入角色-权限关联（admin 不再直接放行，统一查 role_permissions，保证业务只读生效）
 func seedRolePermissions(db *gorm.DB) error {
 	rolePerms := map[string][]string{
+		// admin = 系统管理员：只管系统配置（用户/角色/审计）与业务只读监督，不含任何业务写权限
+		"admin": {
+			"employee:read", "department:read", "position:read",
+			"attendance:read", "leave:read", "salary:read",
+			"recruitment:read", "performance:read", "announcement:read",
+			"dashboard:read",
+			"user:read", "user:write",
+			"role:read", "role:write",
+			"audit:read",
+		},
+		// hr = 业务管理员：负责人事业务读写，不再有用户/角色/审计管理权限
 		"hr": {
 			"employee:read", "employee:write",
 			"department:read", "department:write",
@@ -167,12 +178,9 @@ func seedRolePermissions(db *gorm.DB) error {
 			"leave:read", "leave:write",
 			"salary:read", "salary:write",
 			"recruitment:read", "recruitment:write",
-			"dashboard:read",
-			"user:read", "user:write",
-			"role:read",
-			"audit:read",
-			"announcement:read", "announcement:write",
 			"performance:read", "performance:write",
+			"announcement:read", "announcement:write",
+			"dashboard:read",
 		},
 		"manager": {
 			"employee:read",
