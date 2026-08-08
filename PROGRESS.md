@@ -18,7 +18,11 @@
 | M5 | 薪酬+招聘+统计 | prompts/batch5_salary_recruitment.md | ✅ 完成 | 15:11 |
 | M6 | 前端脚手架 | prompts/batch6_frontend_scaffold.md | ✅ 完成 | 15:20 |
 | M7 | 前端业务页面 | prompts/batch7_frontend_pages.md | ✅ 完成 | 15:05 |
-| M8 | 联调+README+提交 | prompts/batch8_integration_finalize.md | ✅ 完成 | 15:30 |
+| M8 | 联调+README+提交 | prompts/batch8_integration_finalize.md | ✅ 完成 | 15:37 |
+| M9 | 用户/角色管理+审计日志 | prompts/batch10_user_role_audit.md | ✅ 完成 | 16:47 |
+| M10 | 请假考勤联动+Excel导出 | prompts/batch11_leave_attendance_export.md | ✅ 完成 | 16:55 |
+| M11 | 前端管理页面(用户/角色/审计) | prompts/batch12_frontend_admin_pages.md | ✅ 完成 | 17:05 |
+| M12 | 自动化测试17例 | prompts/batch13_backend_tests.md | ✅ 完成 | 17:20 |
 
 ## 已确认的环境
 
@@ -45,6 +49,11 @@
 - **批次6** ✅ 通过：Vite+React18+TS+Tailwind4+daisyUI 脚手架；axios 拦截器（token 注入/code 解包/401 跳登录）；zustand persist；构建 0 错误；vite proxy 联调后端 login/health 正常。
 - **批次7** ✅ 通过：全部业务页面（登录/仪表盘/员工/部门/岗位/考勤/请假/薪酬/招聘/个人中心）完成，tsc + vite build 0 错误 0 警告。
 - **批次8** ✅ 通过：端到端联调全链路验证（登录→仪表盘→各模块列表→自助接口→请假审批流→考勤打卡→薪酬状态机→招聘→CRUD→RBAC 越权），修复 1 处问题（`GET /salaries/mine` 未关联员工时状态码 400 与其他模块 404 不一致，统一为 404）；`gofmt -l`、`go vet`、`npm run build` 全绿；编写根目录 README.md；git 提交。
+- **批次9** ✅ 通过：lucide-react 替换全部 emoji 图标（侧边栏/仪表盘/部门树/Modal/Toast 共 22 处），浏览器 DOM 实测 19+15 个 lucide SVG 渲染、零 emoji 残留。
+- **批次10** ✅ 通过：用户管理（CRUD/重置密码/防自删自禁）、角色管理（权限勾选/全量替换/防删 admin 与占用角色）、审计日志（15 个权限点、登录成功/失败均留痕、多条件过滤）；权限矩阵 admin/hr/employee 全验证。
+- **批次11** ✅ 通过：请假审批通过后自动联动考勤（已打卡记录保留打卡时间、状态变 leave；无记录自动新建），同事务原子完成；Excel 导出（员工花名册/工资表，excelize，过滤+权限控制+附件下载）。
+- **批次12** ✅ 通过：前端用户管理/角色管理/审计日志三页面 + 「系统管理」菜单分组；菜单按角色可见（admin 全见/hr 无角色管理/employee 全隐藏）；构建 0 错误。
+- **批次13** ✅ 通过：自动化测试 17/17 全绿（请假审批流/余额/考勤联动/薪酬状态机/工号并发唯一/认证/Excel），独立复跑确认；顺带修复安全缺口——禁用账号（status=0）拒绝登录。
 
 ---
 
