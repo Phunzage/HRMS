@@ -14,6 +14,7 @@ import {
   type ApprovalProgress,
 } from '../api/approval'
 import { toast } from '../store/toast'
+import { useBadgeStore } from '../store/badges'
 import { formatDateTime } from '../utils/format'
 import Modal from '../components/Modal'
 import Field from '../components/FormField'
@@ -34,6 +35,7 @@ const TASK_STATUS_BADGE: Record<string, { label: string; badge: string }> = {
 type TabKey = 'todo' | 'done'
 
 export default function ApprovalsPage() {
+  const setBadges = useBadgeStore((s) => s.setBadges)
   const [activeTab, setActiveTab] = useState<TabKey>('todo')
   const [todo, setTodo] = useState<ApprovalTaskItem[]>([])
   const [done, setDone] = useState<ApprovalTaskItem[]>([])
@@ -57,11 +59,13 @@ export default function ApprovalsPage() {
           const list = Array.isArray(res) ? res : []
           if (tab === 'todo') setTodo(list)
           else setDone(list)
+          // 角标联动：待办列表即实际待办数，同步「我的审批」角标（审批/驳回后 reload 亦会走到这里）
+          if (tab === 'todo') setBadges({ pending_approvals: list.length })
         })
         .catch((err: unknown) => setError(err instanceof Error ? err.message : '获取审批任务失败'))
         .finally(() => setLoading(false))
     },
-    [reloadKey],
+    [reloadKey, setBadges],
   )
 
   useEffect(() => {

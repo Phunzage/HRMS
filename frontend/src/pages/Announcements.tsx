@@ -4,10 +4,12 @@ import {
   createAnnouncement,
   updateAnnouncement,
   deleteAnnouncement,
+  markAllAnnouncementsRead,
   type Announcement,
 } from '../api/announcement'
 import type { PageResult } from '../api/client'
 import { useAuthStore } from '../store/auth'
+import { useBadgeStore } from '../store/badges'
 import { toast } from '../store/toast'
 import { Pin, Pencil, Trash2, Plus } from 'lucide-react'
 import { formatDateTime } from '../utils/format'
@@ -34,6 +36,7 @@ export default function AnnouncementsPage() {
   const role = useAuthStore((s) => s.user?.role_code)
   // 公告增删改仅 hr（admin 只读监督）
   const canManage = role === 'hr'
+  const setBadges = useBadgeStore((s) => s.setBadges)
 
   const [keyword, setKeyword] = useState('')
   const [search, setSearch] = useState('')
@@ -61,6 +64,17 @@ export default function AnnouncementsPage() {
     })
       .then((res) => {
         if (!cancelled) setData(res)
+        // 阅读即已读：进入公告页若存在未读条目，标记全部已读并联动清零角标（本地同步置已读避免闪烁）
+        if (res.list?.some((a) => !a.is_read)) {
+          markAllAnnouncementsRead()
+            .then(() => {
+              setBadges({ unread_announcements: 0 })
+              if (!cancelled) {
+                setData((prev) => (prev ? { ...prev, list: prev.list.map((a) => ({ ...a, is_read: true })) } : prev))
+              }
+            })
+            .catch(() => undefined)
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : '获取公告失败')
@@ -197,7 +211,8 @@ export default function AnnouncementsPage() {
                             置顶
                           </span>
                         )}
-                        <h3 className="text-base font-semibold">{item.title}</h3>
+                        {!item.is_read && <span className="badge badge-primary badge-xs">新</span>}
+                        <h3 className={`text-base ${item.is_read ? 'font-medium' : 'font-semibold'}`}>{item.title}</h3>
                       </div>
                       <div className="mt-1 text-xs text-base-content/50">
                         {item.publisher_name || `#${item.publisher_id}`} · {formatDateTime(item.published_at)}

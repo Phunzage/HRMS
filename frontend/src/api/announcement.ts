@@ -9,6 +9,7 @@ export interface Announcement {
   publisher_id: number
   publisher_name: string
   is_pinned: boolean
+  is_read: boolean // 当前用户是否已读（列表接口返回）
   status: string // published / draft
   published_at: string | null
   created_at: string
@@ -40,4 +41,14 @@ export function updateAnnouncement(id: number, data: Partial<Announcement>) {
 // 删除公告（软删除）
 export function deleteAnnouncement(id: number) {
   return client.delete(`/announcements/${id}`) as Promise<null>
+}
+
+// 标记单条公告已读（幂等）
+export function markAnnouncementRead(id: number) {
+  return client.put(`/announcements/${id}/read`) as Promise<null>
+}
+
+// 全部公告标记已读（当前用户，published 范围）
+export function markAllAnnouncementsRead() {
+  return client.put('/announcements/read-all') as Promise<null>
 }
