@@ -59,25 +59,30 @@
 
 ---
 
-## 2. 数据库设计（13 张表）
+## 2. 数据库设计（18 张表）
 
 ### 2.1 表清单
 
 | 模块 | 表 | 说明 |
 |------|----|------|
-| 认证权限 | `users` | 系统账号（登录名、bcrypt 密码、角色、关联员工） |
-| 认证权限 | `roles` | 角色（admin/hr/manager/employee） |
-| 认证权限 | `permissions` | 权限点（15 个，格式 `模块:动作`） |
+| 认证权限 | `users` | 系统账号（登录名、bcrypt 密码、角色、关联员工、失败锁定、数据范围） |
+| 认证权限 | `roles` | 角色（admin/hr/manager/employee，可自定义） |
+| 认证权限 | `permissions` | 权限点（21 个，格式 `模块:动作`） |
 | 认证权限 | `role_permissions` | 角色-权限关联（复合主键） |
-| 组织架构 | `departments` | 部门（树形，ParentID 自关联） |
+| 认证权限 | `audit_logs` | 操作审计日志（永不删除） |
+| 组织架构 | `departments` | 部门（树形，ParentID 自关联，ManagerID 负责人） |
 | 组织架构 | `positions` | 岗位（Code 唯一，隶属部门） |
-| 人事 | `employees` | 员工档案（工号唯一，归属部门/岗位） |
-| 考勤 | `attendance` | 考勤记录（员工+日期联合唯一） |
+| 人事 | `employees` | 员工档案（工号唯一，归属部门/岗位，Avatar） |
+| 考勤 | `attendance` | 考勤记录（员工+日期联合唯一；状态含 leave） |
+| 考勤 | `attendance_corrections` | 补卡申请（check_in/check_out 修正审批流） |
 | 请假 | `leave_requests` | 请假申请（审批流状态机） |
 | 请假 | `leave_balances` | 假期余额（员工+类型+年份联合唯一） |
-| 薪酬 | `salary_records` | 工资单（员工+月份，净额自动计算） |
+| 薪酬 | `salary_records` | 工资单（员工+月份，净额自动计算，支持批量生成） |
 | 招聘 | `job_openings` | 招聘职位 |
 | 招聘 | `candidates` | 候选人（状态流转） |
+| 通知 | `notifications` | 站内通知（审批待办/结果/补卡/系统） |
+| 公告 | `announcements` | 公告（置顶/草稿/发布） |
+| 绩效 | `performance_reviews` | 绩效考核（员工+周期唯一，S/A/B/C/D 评级） |
 
 ### 2.2 表关系 ER 图
 
@@ -117,12 +122,20 @@ job_openings ──1:N── candidates（候选人应聘职位）
 请假申请:   pending ──approve──▶ approved
             pending ──reject───▶ rejected
             pending ──cancel──▶ cancelled
+            （approve 同事务：扣减余额 + 考勤区间标记 leave + 通知申请人）
 
 工资单:     draft ──confirm──▶ confirmed ──pay──▶ paid
-            （仅 draft 可编辑，confirm 后不可改）
+            （仅 draft 可编辑，confirm 后不可改；支持按月批量生成）
+
+补卡申请:   pending ──approve──▶ approved（同事务更新考勤打卡时间并重算状态）
+            pending ──reject───▶ rejected（含原因）
+            pending ──cancel──▶ cancelled
+
+绩效:       draft ──submit──▶ submitted ──approve──▶ approved（hr/admin）
+            （draft 可编辑/删除，submitted 后可批准）
 
 考勤状态:   check-in>9:00 → late；check-out<18:00 → early_leave
-            两者皆正常 → normal；无打卡 → absent
+            两者皆正常 → normal；无打卡 → absent；请假审批通过 → leave
 
 候选人:     applied → interview → offer → hired / rejected
 
@@ -136,16 +149,21 @@ job_openings ──1:N── candidates（候选人应聘职位）
 ### 3.1 前端页面结构
 
 ```
-/login            登录（GuestOnly 守卫）
-/                 仪表盘（统计卡片 + 部门分布 + 工资/招聘趋势）
+/login            登录（验证码 + GuestOnly 守卫）
+/                 仪表盘（统计卡片 + 部门分布 + 工资/招聘趋势 + 最新公告）
 /employees        员工管理（列表/搜索/分页/新增/编辑/删除，联动建账号）
 /departments      部门管理（树形展示、增删改）
 /positions        岗位管理（列表 CRUD）
-/attendance       考勤（打卡、补录、列表筛选）
+/attendance       考勤（打卡、补录、补卡申请 Tab、考勤月报 Tab）
 /leaves           请假审批（我的申请/待我审批/全部，余额展示）
-/salaries         薪酬（列表、新建/确认/发放，员工仅本人）
+/salaries         薪酬（列表、批量生成、确认/发放，员工仅本人）
 /recruitment      招聘（职位 Tab + 候选人 Tab）
-/profile          个人中心（档案 + 修改密码）
+/announcements    公告管理（置顶/搜索，admin/hr 可编辑）
+/performance      绩效管理（周期/状态筛选，评级 badge，状态流操作）
+/profile          个人中心（档案 + 修改密码 + 头像上传）
+/users            用户管理（admin/hr，含负责部门范围设置）
+/roles            角色管理（admin，权限分组勾选）
+/audit-logs       审计日志（admin/hr 只读）
 ```
 
 ### 3.2 API 一览（前缀 /api/v1，JWT 保护）
@@ -153,52 +171,72 @@ job_openings ──1:N── candidates（候选人应聘职位）
 | 模块 | 端点 |
 |------|------|
 | 健康 | GET /health（公开） |
-| 认证 | POST /auth/login（公开）、GET /auth/me、PUT /auth/password |
+| 认证 | GET /auth/captcha、POST /auth/login（验证码）、GET /auth/me、POST /auth/refresh、PUT /auth/password |
 | 部门 | GET /departments(树)、POST、PUT /:id、DELETE /:id |
 | 岗位 | GET(分页)、POST、PUT /:id、DELETE /:id |
-| 员工 | GET(分页)、GET /me、POST、GET /:id、PUT /:id、DELETE /:id |
-| 考勤 | GET(分页)、POST /check-in、POST /check-out、POST /manual、PUT /:id、DELETE /:id |
+| 员工 | GET(分页)、GET /me、PUT /me/avatar（自助）、GET /export、POST、GET /:id、PUT /:id、DELETE /:id |
+| 考勤 | GET(分页)、GET /report（月报）、POST /check-in、/check-out、/manual、PUT /:id、DELETE /:id、/corrections 补卡全套 |
 | 请假 | POST、GET(分页)、GET /mine、GET /balance、PUT /:id/approve、/reject、/cancel |
-| 薪酬 | GET(分页)、GET /mine、POST、PUT /:id、PUT /:id/confirm、/pay |
+| 薪酬 | GET(分页)、GET /mine、GET /export、POST、POST /batch-generate、PUT /:id、/confirm、/pay |
 | 招聘 | GET/POST/PUT/DELETE /recruitment/jobs、/recruitment/candidates |
+| 通知 | GET /notifications、GET /unread-count、PUT /:id/read、PUT /read-all |
+| 公告 | GET/POST/PUT/DELETE /announcements |
+| 绩效 | GET(分页)、GET /mine、POST、PUT /:id、PUT /:id/submit、/approve、DELETE /:id |
+| 用户管理 | GET /users、POST、PUT /:id、PUT /:id/password、DELETE /:id、GET /users/roles |
+| 角色管理 | GET /roles、GET /roles/permissions、POST、PUT /:id、DELETE /:id |
+| 审计日志 | GET /audit-logs |
+| 上传 | POST /upload、GET /uploads/*（静态） |
 | 仪表盘 | GET /dashboard/stats |
 
 ---
 
 ## 4. 权限设计（RBAC）
 
-### 4.1 权限点（15 个）
+### 4.1 权限点（21 个）
 
 | 权限点 | 含义 |
 |--------|------|
 | employee:read / write | 员工查看/编辑 |
 | department:read / write | 部门查看/编辑 |
 | position:read / write | 岗位查看/编辑 |
-| attendance:read / write | 考勤查看/打卡与补录 |
+| attendance:read / write | 考勤查看/打卡与补录/补卡 |
 | leave:read / write | 请假查看/提交与审批 |
 | salary:read / write | 薪酬查看/编辑 |
 | recruitment:read / write | 招聘查看/编辑 |
+| user:read / write | 用户管理查看/编辑 |
+| role:read / write | 角色管理查看/编辑 |
+| audit:read | 审计日志查看 |
 | dashboard:read | 仪表盘查看 |
+| announcement:read / write | 公告查看/编辑 |
+| performance:read / write | 绩效查看/编辑 |
 
 ### 4.2 角色-权限矩阵
 
 | 权限 | admin | hr | manager | employee |
 |------|:---:|:---:|:---:|:---:|
 | 全部权限 | ✅ 直接放行 | — | — | — |
-| employee:read | ✅ | ✅ | ✅ | —（仅 /me 本人） |
+| employee:read | ✅ | ✅ | ✅ | —（仅 /me 本人 + /me/avatar 自助） |
 | employee:write | ✅ | ✅ | — | — |
 | department:read | ✅ | ✅ | ✅ | — |
 | department:write | ✅ | ✅ | — | — |
 | position:read | ✅ | ✅ | — | — |
 | position:write | ✅ | ✅ | — | — |
 | attendance:read | ✅ | ✅ | ✅ | ✅ |
-| attendance:write | ✅ | ✅ | — | ✅（自助打卡） |
+| attendance:write | ✅ | ✅ | ✅（补卡审批） | ✅（自助打卡/补卡） |
 | leave:read | ✅ | ✅ | ✅ | ✅ |
 | leave:write | ✅ | ✅ | ✅（审批） | ✅（提交/取消） |
 | salary:read | ✅ | ✅ | — | ✅（仅本人） |
 | salary:write | ✅ | ✅ | — | — |
 | recruitment:read/write | ✅ | ✅ | — | — |
+| user:read / user:write | ✅ | ✅ | — | — |
+| role:read | ✅ | ✅ | — | — |
+| role:write | ✅ | — | — | — |
+| audit:read | ✅ | ✅ | — | — |
 | dashboard:read | ✅ | ✅ | — | — |
+| announcement:read | ✅ | ✅ | ✅ | ✅ |
+| announcement:write | ✅ | ✅ | — | — |
+| performance:read | ✅ | ✅ | ✅ | ✅（仅自己） |
+| performance:write | ✅ | ✅ | ✅（本部门） | — |
 
 ### 4.3 双重权限控制（接口级 + 数据级）
 
