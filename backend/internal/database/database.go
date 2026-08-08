@@ -36,5 +36,7 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.JobOpening{},
 		&models.Candidate{},
 		&models.AuditLog{},
+		&models.Notification{},
+		&models.AttendanceCorrection{},
 	)
 }

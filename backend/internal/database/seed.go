@@ -119,7 +119,7 @@ func seedRolePermissions(db *gorm.DB) error {
 		},
 		"manager": {
 			"employee:read",
-			"attendance:read",
+			"attendance:read", "attendance:write",
 			"leave:read", "leave:write",
 			"department:read",
 		},

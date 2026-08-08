@@ -1,6 +1,7 @@
 package repository
 
 import (
+	"errors"
 	"fmt"
 	"strconv"
 
@@ -165,6 +166,18 @@ func (r *EmployeeRepo) SoftDeleteAndDisableUser(id uint) error {
 		}
 		return tx.Delete(&models.Employee{}, id).Error
 	})
+}
+
+// FindUserIDByEmployeeID 查询员工关联的系统账号 ID；员工不存在或未关联账号返回 nil（不报错）
+func (r *EmployeeRepo) FindUserIDByEmployeeID(employeeID uint) (*uint, error) {
+	var emp models.Employee
+	if err := r.db.Select("user_id").First(&emp, employeeID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return emp.UserID, nil
 }
 
 // FindEmployeeIDByUserID 查询用户关联的员工档案 ID（可能为空）

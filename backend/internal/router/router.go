@@ -46,9 +46,19 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	attendanceService := service.NewAttendanceService(attendanceRepo, empRepo)
 	attendanceHandler := handler.NewAttendance(attendanceService, db)
 
+	// 考勤补卡申请模块
+	correctionRepo := repository.NewAttendanceCorrectionRepo(db)
+	notificationRepo := repository.NewNotificationRepo(db)
+	notificationService := service.NewNotificationService(notificationRepo, empRepo)
+	correctionService := service.NewAttendanceCorrectionService(correctionRepo, attendanceRepo, empRepo, notificationService)
+	correctionHandler := handler.NewAttendanceCorrection(correctionService, db)
+
+	// 站内通知模块
+	notificationHandler := handler.NewNotification(notificationService, db)
+
 	// 请假审批流模块
 	leaveRepo := repository.NewLeaveRepo(db)
-	leaveService := service.NewLeaveService(leaveRepo, empRepo)
+	leaveService := service.NewLeaveService(leaveRepo, empRepo, notificationService)
 	leaveHandler := handler.NewLeave(leaveService, db)
 
 	// 薪酬模块
@@ -137,8 +147,27 @@ func Register(r *gin.Engine, db *gorm.DB) {
 				attendance.POST("/check-in", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.CheckIn)
 				attendance.POST("/check-out", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.CheckOut)
 				attendance.POST("/manual", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.Manual)
+				// 补卡申请（静态段必须先于 :id 注册，否则 corrections 会被当作 id 捕获）
+				corrections := attendance.Group("/corrections")
+				{
+					corrections.POST("", middleware.RequirePermission(db, "attendance:write"), correctionHandler.Create)
+					corrections.GET("", middleware.RequirePermission(db, "attendance:read"), correctionHandler.List)
+					corrections.GET("/mine", correctionHandler.Mine)
+					corrections.PUT("/:id/approve", middleware.RequirePermission(db, "attendance:write"), correctionHandler.Approve)
+					corrections.PUT("/:id/reject", middleware.RequirePermission(db, "attendance:write"), correctionHandler.Reject)
+					corrections.PUT("/:id/cancel", correctionHandler.Cancel)
+				}
 				attendance.PUT("/:id", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.Update)
 				attendance.DELETE("/:id", middleware.RequirePermission(db, "attendance:write"), attendanceHandler.Delete)
+			}
+
+			// 站内通知（登录即可，无权限点）
+			notifications := authed.Group("/notifications")
+			{
+				notifications.GET("", notificationHandler.List)
+				notifications.GET("/unread-count", notificationHandler.UnreadCount)
+				notifications.PUT("/:id/read", notificationHandler.MarkRead)
+				notifications.PUT("/read-all", notificationHandler.MarkAllRead)
 			}
 
 			// 请假审批流

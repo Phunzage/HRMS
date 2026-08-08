@@ -89,11 +89,12 @@ type MineResult struct {
 type LeaveService struct {
 	leaveRepo *repository.LeaveRepo
 	empRepo   *repository.EmployeeRepo
+	notif     *NotificationService
 }
 
 // NewLeaveService 创建请假服务
-func NewLeaveService(leaveRepo *repository.LeaveRepo, empRepo *repository.EmployeeRepo) *LeaveService {
-	return &LeaveService{leaveRepo: leaveRepo, empRepo: empRepo}
+func NewLeaveService(leaveRepo *repository.LeaveRepo, empRepo *repository.EmployeeRepo, notif *NotificationService) *LeaveService {
+	return &LeaveService{leaveRepo: leaveRepo, empRepo: empRepo, notif: notif}
 }
 
 // Create 提交请假申请：校验日期与余额，自动匹配部门负责人作为审批人
@@ -158,6 +159,8 @@ func (s *LeaveService) Create(userID uint, req SubmitLeaveRequest) (*models.Leav
 		if err := s.leaveRepo.Create(leave); err != nil {
 			return nil, err
 		}
+		// 通知审批人待审批
+		s.notifyApprover(leave)
 		return leave, nil
 	}
 	// 无审批人：直接通过并扣减余额（原子事务）
@@ -241,7 +244,12 @@ func (s *LeaveService) Approve(roleCode string, userID uint, id uint) error {
 	if err := s.checkApprover(roleCode, userID, leave); err != nil {
 		return err
 	}
-	return s.leaveRepo.ApproveAndDeduct(id, time.Now().Year(), leaveQuota[leave.LeaveType])
+	if err := s.leaveRepo.ApproveAndDeduct(id, time.Now().Year(), leaveQuota[leave.LeaveType]); err != nil {
+		return err
+	}
+	// 通知申请人审批通过
+	s.notifyLeaveResult(leave, true, "")
+	return nil
 }
 
 // Reject 驳回申请
@@ -256,7 +264,12 @@ func (s *LeaveService) Reject(roleCode string, userID uint, id uint, reason stri
 	if err := s.checkApprover(roleCode, userID, leave); err != nil {
 		return err
 	}
-	return s.leaveRepo.Reject(id, reason)
+	if err := s.leaveRepo.Reject(id, reason); err != nil {
+		return err
+	}
+	// 通知申请人审批驳回
+	s.notifyLeaveResult(leave, false, reason)
+	return nil
 }
 
 // Cancel 申请人取消自己的 pending 申请
@@ -276,6 +289,36 @@ func (s *LeaveService) Cancel(userID uint, id uint) error {
 		return ErrLeaveNotOwner
 	}
 	return s.leaveRepo.Cancel(id)
+}
+
+// notifyApprover 提交申请后通知审批人（审批人无账号则静默跳过）
+func (s *LeaveService) notifyApprover(leave *models.LeaveRequest) {
+	if leave.ApproverID == nil || *leave.ApproverID == 0 {
+		return
+	}
+	emp, err := s.empRepo.FindByID(leave.EmployeeID)
+	if err != nil {
+		return
+	}
+	content := fmt.Sprintf("%s 提交了 %s %s 天（%s~%s）",
+		emp.Name, leaveTypeNames[leave.LeaveType], formatDays(leave.Days),
+		leave.StartDate.Format("2006-01-02"), leave.EndDate.Format("2006-01-02"))
+	s.notif.SendToEmployee(*leave.ApproverID, NotifTypeLeaveApproval, "新的请假申请待审批", content, "/leaves")
+}
+
+// notifyLeaveResult 审批结果通知申请人
+func (s *LeaveService) notifyLeaveResult(leave *models.LeaveRequest, approved bool, rejectReason string) {
+	var title, content string
+	if approved {
+		title = "请假审批通过"
+		content = fmt.Sprintf("%s %s 天（%s~%s）已通过",
+			leaveTypeNames[leave.LeaveType], formatDays(leave.Days),
+			leave.StartDate.Format("2006-01-02"), leave.EndDate.Format("2006-01-02"))
+	} else {
+		title = "请假审批驳回"
+		content = fmt.Sprintf("原因：%s", rejectReason)
+	}
+	s.notif.SendToEmployee(leave.EmployeeID, NotifTypeLeaveResult, title, content, "/leaves")
 }
 
 // checkApprover 审批权限校验：admin/hr 可审批；manager 必须是该申请审批人
