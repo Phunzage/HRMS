@@ -10,7 +10,12 @@ import (
 
 // parseID 解析路径参数中的资源 ID
 func parseID(c *gin.Context) (uint, error) {
-	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	return parseUintParam(c, "id")
+}
+
+// parseUintParam 解析任意名称的路径参数为 uint
+func parseUintParam(c *gin.Context, key string) (uint, error) {
+	id, err := strconv.ParseUint(c.Param(key), 10, 64)
 	if err != nil {
 		return 0, err
 	}

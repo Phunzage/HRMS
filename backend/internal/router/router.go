@@ -58,8 +58,13 @@ func Register(r *gin.Engine, db *gorm.DB) {
 
 	// 请假审批流模块
 	leaveRepo := repository.NewLeaveRepo(db)
-	leaveService := service.NewLeaveService(db, leaveRepo, empRepo, notificationService)
+	leaveService := service.NewLeaveService(db, leaveRepo, empRepo)
 	leaveHandler := handler.NewLeave(leaveService, db)
+
+	// 通用审批流模块（请假已迁移；补卡下一批次迁移）
+	approvalHandler := handler.NewApproval(db, map[string]service.ApprovalBizCallback{
+		"leave": leaveService,
+	})
 
 	// 薪酬模块
 	salaryRepo := repository.NewSalaryRepo(db)
@@ -183,7 +188,7 @@ func Register(r *gin.Engine, db *gorm.DB) {
 				notifications.PUT("/read-all", notificationHandler.MarkAllRead)
 			}
 
-			// 请假审批流
+			// 请假审批流（审批动作已迁移至 /approvals 通用接口）
 			leaves := authed.Group("/leaves")
 			{
 				// 自助接口：仅需登录（静态段优先于 :id 匹配）
@@ -191,9 +196,18 @@ func Register(r *gin.Engine, db *gorm.DB) {
 				leaves.GET("/balance", leaveHandler.Balance)
 				leaves.POST("", middleware.RequirePermission(db, "leave:write"), leaveHandler.Create)
 				leaves.GET("", middleware.RequirePermission(db, "leave:read"), leaveHandler.List)
-				leaves.PUT("/:id/approve", middleware.RequirePermission(db, "leave:write"), leaveHandler.Approve)
-				leaves.PUT("/:id/reject", middleware.RequirePermission(db, "leave:write"), leaveHandler.Reject)
 				leaves.PUT("/:id/cancel", leaveHandler.Cancel)
+			}
+
+			// 通用审批流（JWT 保护，无新增权限点，靠任务归属校验）
+			approvals := authed.Group("/approvals")
+			{
+				// 静态段须先于 :instanceId 注册，避免 "mine" / "biz" / "tasks" 被当作实例 ID 捕获
+				approvals.GET("/mine", approvalHandler.Mine)
+				approvals.GET("/biz", approvalHandler.Biz)
+				approvals.PUT("/tasks/:taskId/approve", approvalHandler.Approve)
+				approvals.PUT("/tasks/:taskId/reject", approvalHandler.Reject)
+				approvals.GET("/:instanceId/tasks", approvalHandler.InstanceTasks)
 			}
 
 			// 薪酬管理

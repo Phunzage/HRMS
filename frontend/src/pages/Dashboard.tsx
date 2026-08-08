@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
   Users,
@@ -13,6 +13,7 @@ import {
   UserRound,
   Pin,
   ArrowRight,
+  RefreshCw,
   type LucideIcon,
 } from 'lucide-react'
 import { fetchDashboardStats, type DashboardStats, type DeptCount } from '../api/dashboard'
@@ -76,15 +77,41 @@ export default function Dashboard() {
   const navigate = useNavigate()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
-  const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
 
-  useEffect(() => {
-    fetchDashboardStats()
-      .then(setStats)
-      .catch((err: unknown) => setError(err instanceof Error ? err.message : '获取统计数据失败'))
-      .finally(() => setLoading(false))
+  // 加载统计数据
+  const loadStats = useCallback(async () => {
+    const data = await fetchDashboardStats()
+    setStats(data)
   }, [])
+
+  // 首次挂载加载
+  useEffect(() => {
+    loadStats()
+      .then(() => undefined)
+      .catch(() => undefined)
+      .finally(() => setLoading(false))
+  }, [loadStats])
+
+  // 窗口聚焦时自动刷新（其他页面/标签页操作后回到仪表盘能拿到最新数据）
+  useEffect(() => {
+    const onFocus = () => {
+      setRefreshing(true)
+      loadStats()
+        .then(() => undefined)
+        .catch(() => undefined)
+        .finally(() => setRefreshing(false))
+    }
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') onFocus()
+    })
+    return () => {
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onFocus)
+    }
+  }, [loadStats])
 
   // 最新 3 条公告
   useEffect(() => {
@@ -97,14 +124,6 @@ export default function Dashboard() {
     return (
       <div className="flex items-center justify-center py-20">
         <span className="loading loading-spinner loading-lg text-primary" />
-      </div>
-    )
-  }
-
-  if (error) {
-    return (
-      <div className="alert alert-error">
-        <span>{error}</span>
       </div>
     )
   }
@@ -128,6 +147,25 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6">
+      {/* 工具栏：标题 + 刷新 */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-bold">数据概览</h2>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm gap-1"
+          onClick={() => {
+            setRefreshing(true)
+            loadStats()
+              .then(() => undefined)
+              .catch(() => undefined)
+              .finally(() => setRefreshing(false))
+          }}
+        >
+          <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+          刷新
+        </button>
+      </div>
+
       {/* 统计卡片 */}
       <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
         {cards.map((c) => (

@@ -108,5 +108,55 @@ func seedTestBasics(db *gorm.DB) error {
 	case err != nil:
 		return fmt.Errorf("查询测试岗位失败: %w", err)
 	}
+	// 审批流程定义：请假/补卡均固定两级（部门经理 → HR 终审），供审批引擎测试使用
+	if err := seedTestApprovalFlows(db); err != nil {
+		return err
+	}
+	return nil
+}
+
+// seedTestApprovalFlows 写入测试库审批流程定义（幂等），与生产 Seed 保持一致
+func seedTestApprovalFlows(db *gorm.DB) error {
+	flows := []struct {
+		code  string
+		name  string
+		steps []models.ApprovalStep
+	}{
+		{
+			code: "leave",
+			name: "请假审批",
+			steps: []models.ApprovalStep{
+				{StepOrder: 1, ApproverType: "manager", Name: "部门经理审批"},
+				{StepOrder: 2, ApproverType: "hr", Name: "HR终审"},
+			},
+		},
+		{
+			code: "attendance_correction",
+			name: "补卡审批",
+			steps: []models.ApprovalStep{
+				{StepOrder: 1, ApproverType: "manager", Name: "部门经理审批"},
+				{StepOrder: 2, ApproverType: "hr", Name: "HR终审"},
+			},
+		},
+	}
+	for _, f := range flows {
+		var existing models.ApprovalFlow
+		err := db.Where("code = ?", f.code).First(&existing).Error
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			flow := models.ApprovalFlow{Code: f.code, Name: f.name, Status: "active"}
+			if err := db.Create(&flow).Error; err != nil {
+				return fmt.Errorf("创建测试审批流程 %s 失败: %w", f.code, err)
+			}
+			for _, st := range f.steps {
+				st.FlowID = flow.ID
+				if err := db.Create(&st).Error; err != nil {
+					return fmt.Errorf("创建测试审批流程 %s 步骤 %d 失败: %w", f.code, st.StepOrder, err)
+				}
+			}
+		case err != nil:
+			return fmt.Errorf("查询测试审批流程 %s 失败: %w", f.code, err)
+		}
+	}
 	return nil
 }

@@ -21,7 +21,6 @@ var (
 	ErrLeaveDateOrder      = errors.New("结束日期不能早于开始日期")
 	ErrLeaveReasonRequired = errors.New("请假事由不能为空")
 	ErrLeaveNotOwner       = errors.New("只能操作自己的请假申请")
-	ErrLeaveNotApprover    = errors.New("无权限审批该请假申请")
 	ErrLeaveNotPending     = repository.ErrLeaveNotPending
 )
 
@@ -87,18 +86,17 @@ type MineResult struct {
 
 // LeaveService 请假业务服务
 type LeaveService struct {
-	db        *gorm.DB // 数据范围解析用（ResolveScope）
+	db        *gorm.DB // 数据范围解析与事务用（ResolveScope）
 	leaveRepo *repository.LeaveRepo
 	empRepo   *repository.EmployeeRepo
-	notif     *NotificationService
 }
 
 // NewLeaveService 创建请假服务
-func NewLeaveService(db *gorm.DB, leaveRepo *repository.LeaveRepo, empRepo *repository.EmployeeRepo, notif *NotificationService) *LeaveService {
-	return &LeaveService{db: db, leaveRepo: leaveRepo, empRepo: empRepo, notif: notif}
+func NewLeaveService(db *gorm.DB, leaveRepo *repository.LeaveRepo, empRepo *repository.EmployeeRepo) *LeaveService {
+	return &LeaveService{db: db, leaveRepo: leaveRepo, empRepo: empRepo}
 }
 
-// Create 提交请假申请：校验日期与余额，自动匹配部门负责人作为审批人
+// Create 提交请假申请：校验日期与余额，创建请假单并启动审批流程（部门经理 → HR 终审）
 func (s *LeaveService) Create(userID uint, req SubmitLeaveRequest) (*models.LeaveRequest, error) {
 	empID, err := s.requireEmployee(userID)
 	if err != nil {
@@ -147,28 +145,24 @@ func (s *LeaveService) Create(userID uint, req SubmitLeaveRequest) (*models.Leav
 		Reason:     req.Reason,
 	}
 
-	// 自动匹配审批人：员工所属部门负责人；找不到则直接审批通过（同时扣减余额）
+	// 兼容字段：记录部门经理（员工ID），仅作列表展示用，审批依据以审批引擎为准
 	managerID, err := s.leaveRepo.FindManagerEmployeeID(empID)
-	if err != nil {
-		if !errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, err
-		}
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, err
 	}
 	if managerID != nil && *managerID > 0 {
-		leave.Status = "pending"
 		leave.ApproverID = managerID
-		if err := s.leaveRepo.Create(leave); err != nil {
-			return nil, err
-		}
-		// 通知审批人待审批
-		s.notifyApprover(leave)
-		return leave, nil
 	}
-	// 无审批人：直接通过并扣减余额（原子事务）
-	leave.Status = "approved"
-	now := time.Now()
-	leave.ApprovedAt = &now
-	if err := s.leaveRepo.CreateAutoApproved(leave, year, leaveQuota[req.LeaveType]); err != nil {
+
+	// 事务：创建请假单 + 启动审批流程（审批实例 + 步骤1经理任务 + 通知经理）
+	if err := s.db.Transaction(func(tx *gorm.DB) error {
+		leaveRepo := repository.NewLeaveRepo(tx)
+		if err := leaveRepo.Create(leave); err != nil {
+			return err
+		}
+		_, err := StartApproval(tx, "leave", leave.ID, userID)
+		return err
+	}); err != nil {
 		return nil, err
 	}
 	return leave, nil
@@ -233,47 +227,66 @@ func (s *LeaveService) Balance(userID uint) ([]BalanceItem, error) {
 	return items, nil
 }
 
-// Approve 审批通过（manager/admin/hr）：更新状态 + 扣减余额（事务原子）
-func (s *LeaveService) Approve(roleCode string, userID uint, id uint) error {
-	leave, err := s.leaveRepo.FindByID(id)
-	if err != nil {
+// ApplyLeaveApproved 请假终审通过回调（事务内调用）：状态→approved + 扣减余额 + 考勤联动 + 通知申请人
+// 由审批 handler 在审批引擎判定实例 final 后，于同一事务内调用
+func (s *LeaveService) ApplyLeaveApproved(tx *gorm.DB, leaveID uint) error {
+	leaveRepo := repository.NewLeaveRepo(tx)
+	var lr models.LeaveRequest
+	if err := tx.First(&lr, leaveID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrLeaveNotFound
 		}
 		return err
 	}
-	if err := s.checkApprover(roleCode, userID, leave); err != nil {
-		return err
+	if lr.Status != "pending" {
+		return ErrLeaveNotPending
 	}
-	if err := s.leaveRepo.ApproveAndDeduct(id, time.Now().Year(), leaveQuota[leave.LeaveType]); err != nil {
+	// 更新状态 + 扣减余额 + 请假区间考勤标记 leave（事务原子）
+	if err := leaveRepo.ApproveAndDeduct(leaveID, time.Now().Year(), leaveQuota[lr.LeaveType]); err != nil {
 		return err
 	}
 	// 通知申请人审批通过
-	s.notifyLeaveResult(leave, true, "")
+	notif := NewNotificationService(repository.NewNotificationRepo(tx), repository.NewEmployeeRepo(tx))
+	notif.SendToEmployee(lr.EmployeeID, NotifTypeLeaveResult, "请假审批通过",
+		fmt.Sprintf("%s %s 天（%s~%s）已通过", leaveTypeNames[lr.LeaveType], formatDays(lr.Days),
+			lr.StartDate.Format("2006-01-02"), lr.EndDate.Format("2006-01-02")), "/leaves")
 	return nil
 }
 
-// Reject 驳回申请
-func (s *LeaveService) Reject(roleCode string, userID uint, id uint, reason string) error {
-	leave, err := s.leaveRepo.FindByID(id)
-	if err != nil {
+// ApplyLeaveRejected 请假驳回回调（事务内调用）：状态→rejected + 通知申请人（含驳回原因）
+func (s *LeaveService) ApplyLeaveRejected(tx *gorm.DB, leaveID uint, reason string) error {
+	leaveRepo := repository.NewLeaveRepo(tx)
+	var lr models.LeaveRequest
+	if err := tx.First(&lr, leaveID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return ErrLeaveNotFound
 		}
 		return err
 	}
-	if err := s.checkApprover(roleCode, userID, leave); err != nil {
+	if lr.Status != "pending" {
+		return ErrLeaveNotPending
+	}
+	if err := leaveRepo.Reject(leaveID, reason); err != nil {
 		return err
 	}
-	if err := s.leaveRepo.Reject(id, reason); err != nil {
-		return err
-	}
-	// 通知申请人审批驳回
-	s.notifyLeaveResult(leave, false, reason)
+	// 通知申请人驳回原因
+	notif := NewNotificationService(repository.NewNotificationRepo(tx), repository.NewEmployeeRepo(tx))
+	notif.SendToEmployee(lr.EmployeeID, NotifTypeLeaveResult, "请假审批驳回",
+		fmt.Sprintf("原因：%s", reason), "/leaves")
 	return nil
 }
 
-// Cancel 申请人取消自己的 pending 申请
+// ApplyApproved 实现审批终审回调接口：委托给请假终审通过回调
+func (s *LeaveService) ApplyApproved(tx *gorm.DB, bizID uint) error {
+	return s.ApplyLeaveApproved(tx, bizID)
+}
+
+// ApplyRejected 实现审批终审回调接口：委托给请假驳回回调
+func (s *LeaveService) ApplyRejected(tx *gorm.DB, bizID uint, reason string) error {
+	return s.ApplyLeaveRejected(tx, bizID, reason)
+}
+
+// Cancel 申请人取消自己的 pending 申请：同事务取消请假单 + 取消审批实例
 func (s *LeaveService) Cancel(userID uint, id uint) error {
 	leave, err := s.leaveRepo.FindByID(id)
 	if err != nil {
@@ -282,6 +295,9 @@ func (s *LeaveService) Cancel(userID uint, id uint) error {
 		}
 		return err
 	}
+	if leave.Status != "pending" {
+		return ErrLeaveNotPending
+	}
 	empID, err := s.requireEmployee(userID)
 	if err != nil {
 		return err
@@ -289,55 +305,21 @@ func (s *LeaveService) Cancel(userID uint, id uint) error {
 	if leave.EmployeeID != empID {
 		return ErrLeaveNotOwner
 	}
-	return s.leaveRepo.Cancel(id)
-}
-
-// notifyApprover 提交申请后通知审批人（审批人无账号则静默跳过）
-func (s *LeaveService) notifyApprover(leave *models.LeaveRequest) {
-	if leave.ApproverID == nil || *leave.ApproverID == 0 {
-		return
-	}
-	emp, err := s.empRepo.FindByID(leave.EmployeeID)
-	if err != nil {
-		return
-	}
-	content := fmt.Sprintf("%s 提交了 %s %s 天（%s~%s）",
-		emp.Name, leaveTypeNames[leave.LeaveType], formatDays(leave.Days),
-		leave.StartDate.Format("2006-01-02"), leave.EndDate.Format("2006-01-02"))
-	s.notif.SendToEmployee(*leave.ApproverID, NotifTypeLeaveApproval, "新的请假申请待审批", content, "/leaves")
-}
-
-// notifyLeaveResult 审批结果通知申请人
-func (s *LeaveService) notifyLeaveResult(leave *models.LeaveRequest, approved bool, rejectReason string) {
-	var title, content string
-	if approved {
-		title = "请假审批通过"
-		content = fmt.Sprintf("%s %s 天（%s~%s）已通过",
-			leaveTypeNames[leave.LeaveType], formatDays(leave.Days),
-			leave.StartDate.Format("2006-01-02"), leave.EndDate.Format("2006-01-02"))
-	} else {
-		title = "请假审批驳回"
-		content = fmt.Sprintf("原因：%s", rejectReason)
-	}
-	s.notif.SendToEmployee(leave.EmployeeID, NotifTypeLeaveResult, title, content, "/leaves")
-}
-
-// checkApprover 审批权限校验：admin/hr 可审批；manager 必须是该申请审批人
-func (s *LeaveService) checkApprover(roleCode string, userID uint, leave *models.LeaveRequest) error {
-	if roleCode == "admin" || roleCode == "hr" {
-		return nil
-	}
-	if roleCode != "manager" {
-		return ErrLeaveNotApprover
-	}
-	empID, err := s.requireEmployee(userID)
-	if err != nil {
-		return err
-	}
-	if leave.ApproverID == nil || *leave.ApproverID != empID {
-		return ErrLeaveNotApprover
-	}
-	return nil
+	// 事务：取消请假单 + 取消审批实例（保持状态一致）
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		leaveRepo := repository.NewLeaveRepo(tx)
+		if err := leaveRepo.Cancel(id); err != nil {
+			return err
+		}
+		inst, err := GetInstanceByBiz(tx, "leave", id)
+		if err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return nil // 无审批实例（历史数据）则仅取消业务单
+			}
+			return err
+		}
+		return CancelApproval(tx, inst.ID, userID)
+	})
 }
 
 // buildScope 按角色构建列表访问范围

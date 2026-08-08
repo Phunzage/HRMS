@@ -24,11 +24,6 @@ func NewLeave(svc *service.LeaveService, db *gorm.DB) *Leave {
 	return &Leave{service: svc, db: db}
 }
 
-// rejectLeaveRequest 驳回请假请求体
-type rejectLeaveRequest struct {
-	RejectReason string `json:"reject_reason" binding:"required"`
-}
-
 // Create 提交请假申请
 func (h *Leave) Create(c *gin.Context) {
 	var req service.SubmitLeaveRequest
@@ -101,42 +96,7 @@ func (h *Leave) Balance(c *gin.Context) {
 	response.OK(c, items)
 }
 
-// Approve 审批通过
-func (h *Leave) Approve(c *gin.Context) {
-	id, err := parseID(c)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, 400, "参数错误")
-		return
-	}
-	if err := h.service.Approve(middleware.GetRoleCode(c), middleware.GetUserID(c), id); err != nil {
-		h.handleActionError(c, err)
-		return
-	}
-	middleware.Record(h.db, c, "leave", "approve", fmt.Sprintf("leave:%d", id), fmt.Sprintf("审批通过请假(ID:%d)", id))
-	response.OK(c, nil)
-}
-
-// Reject 驳回申请
-func (h *Leave) Reject(c *gin.Context) {
-	id, err := parseID(c)
-	if err != nil {
-		response.Error(c, http.StatusBadRequest, 400, "参数错误")
-		return
-	}
-	var req rejectLeaveRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Error(c, http.StatusBadRequest, 400, "参数错误")
-		return
-	}
-	if err := h.service.Reject(middleware.GetRoleCode(c), middleware.GetUserID(c), id, req.RejectReason); err != nil {
-		h.handleActionError(c, err)
-		return
-	}
-	middleware.Record(h.db, c, "leave", "reject", fmt.Sprintf("leave:%d", id), fmt.Sprintf("驳回请假(ID:%d)", id))
-	response.OK(c, nil)
-}
-
-// Cancel 申请人取消 pending 申请
+// Cancel 申请人取消 pending 申请（同事务取消请假单 + 审批实例）
 func (h *Leave) Cancel(c *gin.Context) {
 	id, err := parseID(c)
 	if err != nil {
@@ -151,17 +111,18 @@ func (h *Leave) Cancel(c *gin.Context) {
 	response.OK(c, nil)
 }
 
-// handleActionError 审批/取消类动作的通用错误映射
+// handleActionError 取消类动作的通用错误映射
 func (h *Leave) handleActionError(c *gin.Context, err error) {
 	switch {
-	case errors.Is(err, service.ErrLeaveNotFound):
+	case errors.Is(err, service.ErrLeaveNotFound),
+		errors.Is(err, service.ErrApprovalInstanceNotFound):
 		response.Error(c, http.StatusNotFound, 404, err.Error())
 	case errors.Is(err, service.ErrLeaveEmpNoUser):
 		response.Error(c, http.StatusBadRequest, 400, err.Error())
-	case errors.Is(err, service.ErrLeaveNotApprover),
-		errors.Is(err, service.ErrLeaveNotOwner):
+	case errors.Is(err, service.ErrLeaveNotOwner):
 		response.Error(c, http.StatusForbidden, 403, err.Error())
-	case errors.Is(err, service.ErrLeaveNotPending):
+	case errors.Is(err, service.ErrLeaveNotPending),
+		errors.Is(err, service.ErrApprovalNotPending):
 		response.Error(c, http.StatusBadRequest, 400, err.Error())
 	default:
 		response.Error(c, http.StatusInternalServerError, 500, "操作失败")

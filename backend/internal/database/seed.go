@@ -1,6 +1,7 @@
 package database
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -34,7 +35,57 @@ func Seed(db *gorm.DB) error {
 	if err != nil {
 		return err
 	}
-	return seedEmployees(db, userIDs, deptIDs, posIDs)
+	if err := seedEmployees(db, userIDs, deptIDs, posIDs); err != nil {
+		return err
+	}
+	return seedApprovalFlows(db)
+}
+
+// seedApprovalFlows 写入审批流程定义（固定两级：部门经理 → HR 终审），幂等
+func seedApprovalFlows(db *gorm.DB) error {
+	flows := []struct {
+		code  string
+		name  string
+		steps []models.ApprovalStep
+	}{
+		{
+			code: "leave",
+			name: "请假审批",
+			steps: []models.ApprovalStep{
+				{StepOrder: 1, ApproverType: "manager", Name: "部门经理审批"},
+				{StepOrder: 2, ApproverType: "hr", Name: "HR终审"},
+			},
+		},
+		{
+			code: "attendance_correction",
+			name: "补卡审批",
+			steps: []models.ApprovalStep{
+				{StepOrder: 1, ApproverType: "manager", Name: "部门经理审批"},
+				{StepOrder: 2, ApproverType: "hr", Name: "HR终审"},
+			},
+		},
+	}
+	for _, f := range flows {
+		var existing models.ApprovalFlow
+		err := db.Where("code = ?", f.code).First(&existing).Error
+		switch {
+		case errors.Is(err, gorm.ErrRecordNotFound):
+			flow := models.ApprovalFlow{Code: f.code, Name: f.name, Status: "active"}
+			if err := db.Create(&flow).Error; err != nil {
+				return fmt.Errorf("创建审批流程 %s 失败: %w", f.code, err)
+			}
+			for _, st := range f.steps {
+				st.FlowID = flow.ID
+				if err := db.Create(&st).Error; err != nil {
+					return fmt.Errorf("创建审批流程 %s 步骤 %d 失败: %w", f.code, st.StepOrder, err)
+				}
+			}
+			slog.Info("种子审批流程已创建", "code", f.code, "name", f.name)
+		case err != nil:
+			return fmt.Errorf("查询审批流程 %s 失败: %w", f.code, err)
+		}
+	}
+	return nil
 }
 
 // seedRoles 写入内置角色
