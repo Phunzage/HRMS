@@ -82,14 +82,18 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	announcementService := service.NewAnnouncementService(announcementRepo)
 	announcementHandler := handler.NewAnnouncement(announcementService, db)
 
+	// 导航栏角标汇总模块（复用审批/公告/通知统计）
+	badgeService := service.NewBadgeService(db, announcementRepo, notificationRepo)
+	badgeHandler := handler.NewBadge(badgeService)
+
 	// 绩效管理模块
 	performanceRepo := repository.NewPerformanceRepo(db)
 	performanceService := service.NewPerformanceService(db, performanceRepo, empRepo)
 	performanceHandler := handler.NewPerformance(performanceService, db)
 
-	// 统计仪表盘模块
+	// 统计仪表盘模块（需 db 解析 hr 数据范围）
 	dashboardRepo := repository.NewDashboardRepo(db)
-	dashboardService := service.NewDashboardService(dashboardRepo)
+	dashboardService := service.NewDashboardService(db, dashboardRepo)
 	dashboardHandler := handler.NewDashboard(dashboardService)
 
 	// 用户/角色/审计模块
@@ -188,6 +192,9 @@ func Register(r *gin.Engine, db *gorm.DB) {
 				notifications.PUT("/read-all", notificationHandler.MarkAllRead)
 			}
 
+			// 导航栏角标汇总（登录即可，无权限点）
+			authed.GET("/badges", badgeHandler.Summary)
+
 			// 请假审批流（审批动作已迁移至 /approvals 通用接口）
 			leaves := authed.Group("/leaves")
 			{
@@ -244,11 +251,13 @@ func Register(r *gin.Engine, db *gorm.DB) {
 				}
 			}
 
-			// 公告管理
+			// 公告管理（已读接口登录即可，无权限点；read-all 静态段须先于 :id 注册）
 			announcements := authed.Group("/announcements")
 			{
+				announcements.PUT("/read-all", announcementHandler.MarkAllRead)
 				announcements.GET("", middleware.RequirePermission(db, "announcement:read"), announcementHandler.List)
 				announcements.POST("", middleware.RequirePermission(db, "announcement:write"), announcementHandler.Create)
+				announcements.PUT("/:id/read", announcementHandler.MarkRead)
 				announcements.PUT("/:id", middleware.RequirePermission(db, "announcement:write"), announcementHandler.Update)
 				announcements.DELETE("/:id", middleware.RequirePermission(db, "announcement:write"), announcementHandler.Delete)
 			}

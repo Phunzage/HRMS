@@ -33,6 +33,12 @@ type UpdateAnnouncementRequest struct {
 	Status   *string `json:"status"`
 }
 
+// AnnouncementItem 公告列表项（附带当前用户是否已读）
+type AnnouncementItem struct {
+	models.Announcement
+	IsRead bool `json:"is_read"`
+}
+
 // AnnouncementService 公告业务服务
 type AnnouncementService struct {
 	repo *repository.AnnouncementRepo
@@ -44,8 +50,41 @@ func NewAnnouncementService(repo *repository.AnnouncementRepo) *AnnouncementServ
 }
 
 // List 公告分页列表：published 优先 → 置顶优先 → 时间倒序，支持 keyword 搜索标题
-func (s *AnnouncementService) List(keyword, status string, page, pageSize int) ([]models.Announcement, int64, error) {
-	return s.repo.List(keyword, status, page, pageSize)
+// 每条附带当前用户是否已读（is_read）
+func (s *AnnouncementService) List(userID uint, keyword, status string, page, pageSize int) ([]AnnouncementItem, int64, error) {
+	rows, total, err := s.repo.ListWithRead(userID, keyword, status, page, pageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	items := make([]AnnouncementItem, 0, len(rows))
+	for i := range rows {
+		items = append(items, AnnouncementItem{
+			Announcement: rows[i].Announcement,
+			IsRead:       rows[i].IsRead,
+		})
+	}
+	return items, total, nil
+}
+
+// MarkRead 标记当前用户已读某公告（幂等 upsert）
+func (s *AnnouncementService) MarkRead(userID, id uint) error {
+	if _, err := s.repo.FindByID(id); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return ErrAnnouncementNotFound
+		}
+		return err
+	}
+	return s.repo.MarkRead(userID, id)
+}
+
+// MarkAllRead 标记当前用户已读全部 published 公告（幂等）
+func (s *AnnouncementService) MarkAllRead(userID uint) error {
+	return s.repo.MarkAllRead(userID)
+}
+
+// UnreadCount 当前用户未读公告数
+func (s *AnnouncementService) UnreadCount(userID uint) (int64, error) {
+	return s.repo.UnreadCount(userID)
 }
 
 // Create 发布公告（默认 published，PublishedAt=now）

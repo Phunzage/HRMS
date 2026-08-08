@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"time"
 
 	"gorm.io/gorm"
@@ -13,13 +14,13 @@ import (
 
 // 审批引擎业务错误
 var (
-	ErrApprovalFlowNotFound  = errors.New("审批流程未配置")
-	ErrApprovalFlowNoStep    = errors.New("审批流程未配置审批步骤")
+	ErrApprovalFlowNotFound     = errors.New("审批流程未配置")
+	ErrApprovalFlowNoStep       = errors.New("审批流程未配置审批步骤")
 	ErrApprovalInstanceNotFound = errors.New("审批实例不存在")
-	ErrApprovalTaskNotFound  = errors.New("审批任务不存在")
-	ErrApprovalTaskNotPending = errors.New("审批任务已处理")
-	ErrApprovalNotPending    = errors.New("审批实例当前状态不可操作")
-	ErrApprovalNotAllowed    = errors.New("无权审批该任务")
+	ErrApprovalTaskNotFound     = errors.New("审批任务不存在")
+	ErrApprovalTaskNotPending   = errors.New("审批任务已处理")
+	ErrApprovalNotPending       = errors.New("审批实例当前状态不可操作")
+	ErrApprovalNotAllowed       = errors.New("无权审批该任务")
 )
 
 // ApprovalBizCallback 审批终审回调接口：业务模块实现，handler 在审批流 final 后同一事务内调用
@@ -115,8 +116,8 @@ func StartApproval(tx *gorm.DB, bizType string, bizID uint, applicantUserID uint
 		return nil, err
 	}
 
-	// 4. 通知步骤1审批人（无具体审批人则跳过，由审批人从待办列表获取）
-	approvalNotify(tx, inst, approverID)
+	// 4. 通知步骤1审批人（HR 池步骤会通知所有 HR，其余无具体审批人则跳过，由审批人从待办列表获取）
+	approvalNotify(tx, inst, approverID, &steps[0])
 	return inst, nil
 }
 
@@ -170,7 +171,7 @@ func ApproveTask(tx *gorm.DB, taskID uint, approverUserID uint, comment string) 
 		if err := tx.Create(newTask).Error; err != nil {
 			return nil, err
 		}
-		approvalNotify(tx, inst, approverID)
+		approvalNotify(tx, inst, approverID, &nextStep)
 		return inst, nil
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		// 无下一步：实例终审通过
@@ -278,6 +279,26 @@ func FindHRUser(db *gorm.DB) (*uint, error) {
 	return nil, nil
 }
 
+// FindAllHRUserIDs 查找所有启用（status=1）的 hr 角色用户 ID（HR 池步骤广播通知用）；
+// 一个 hr 都没有则回退查 admin；仍无返回空切片
+func FindAllHRUserIDs(db *gorm.DB) ([]uint, error) {
+	ids := make([]uint, 0)
+	for _, code := range []string{"hr", "admin"} {
+		var tmp []uint
+		if err := db.Model(&models.User{}).
+			Joins("JOIN roles ON roles.id = users.role_id").
+			Where("roles.code = ? AND users.status = 1", code).
+			Order("users.id ASC").
+			Pluck("users.id", &tmp).Error; err != nil {
+			return nil, err
+		}
+		if len(tmp) > 0 {
+			return tmp, nil
+		}
+	}
+	return ids, nil
+}
+
 // ListMyTasks 我作为审批人的任务列表（pending/历史），JOIN 业务表带出申请人、摘要、跳转链接
 // status：空=全部；pending=待审批；approved/rejected=对应历史
 func ListMyTasks(db *gorm.DB, userID uint, status string) ([]TaskItem, error) {
@@ -327,6 +348,28 @@ func ListMyTasks(db *gorm.DB, userID uint, status string) ([]TaskItem, error) {
 		items = append(items, buildTaskItem(&rows[i]))
 	}
 	return items, nil
+}
+
+// CountMyPendingTasks 当前用户待审批任务数（导航栏角标用）：
+// 与 ListMyTasks 的归属口径一致——ApproverID 匹配，或 hr/admin 可认领的 HR 池任务（approver_type=hr 且未指派）
+func CountMyPendingTasks(db *gorm.DB, userID uint) (int64, error) {
+	roleCode, err := getUserRoleCode(db, userID)
+	if err != nil {
+		return 0, err
+	}
+	isHR := roleCode == "hr" || roleCode == "admin"
+
+	q := db.Model(&models.ApprovalTask{}).
+		Joins("JOIN approval_instances ai ON ai.id = approval_tasks.instance_id").
+		Where("approval_tasks.status = ? AND ai.status = ?", "pending", "pending")
+	if isHR {
+		q = q.Where("(approval_tasks.approver_id = ? OR (approval_tasks.approver_type = 'hr' AND approval_tasks.approver_id IS NULL))", userID)
+	} else {
+		q = q.Where("approval_tasks.approver_id = ?", userID)
+	}
+	var n int64
+	err = q.Count(&n).Error
+	return n, err
 }
 
 // GetInstanceByID 根据实例 ID 查询审批实例
@@ -521,11 +564,10 @@ func resolveStepApproverUserID(tx *gorm.DB, inst *models.ApprovalInstance, step 
 	return FindHRUser(tx)
 }
 
-// approvalNotify 向指定审批人发送待审批通知（无具体审批人则跳过）
-func approvalNotify(tx *gorm.DB, inst *models.ApprovalInstance, approverUserID *uint) {
-	if approverUserID == nil {
-		return
-	}
+// approvalNotify 向审批人发送待审批通知：
+// 有具体审批人 → 发给该用户；HR 池步骤（approverUserID 为 nil 且 ApproverType=hr）→ 广播给所有启用 HR 用户（无 HR 回退 admin）；
+// 其他无审批人情况保持跳过
+func approvalNotify(tx *gorm.DB, inst *models.ApprovalInstance, approverUserID *uint, step *models.ApprovalStep) {
 	var ntype, title, link string
 	switch inst.BizType {
 	case "leave":
@@ -537,7 +579,23 @@ func approvalNotify(tx *gorm.DB, inst *models.ApprovalInstance, approverUserID *
 	}
 	applicantName, detail := bizSummary(tx, inst)
 	notif := NewNotificationService(repository.NewNotificationRepo(tx), repository.NewEmployeeRepo(tx))
-	_ = notif.Send(*approverUserID, ntype, title, fmt.Sprintf("%s %s", applicantName, detail), link)
+	content := fmt.Sprintf("%s %s", applicantName, detail)
+
+	if approverUserID != nil {
+		_ = notif.Send(*approverUserID, ntype, title, content, link)
+		return
+	}
+	// HR 池步骤：广播通知所有 HR（无 HR 回退 admin），保证 hr 能收到终审通知
+	if step != nil && step.ApproverType == "hr" {
+		ids, err := FindAllHRUserIDs(tx)
+		if err != nil {
+			slog.Warn("查询 HR 用户发送审批通知失败", "error", err, "instance_id", inst.ID)
+			return
+		}
+		for _, id := range ids {
+			_ = notif.Send(id, ntype, title, content, link)
+		}
+	}
 }
 
 // bizSummary 返回业务申请人姓名与摘要（供通知与展示）

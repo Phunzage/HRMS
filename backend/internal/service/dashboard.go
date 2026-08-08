@@ -3,6 +3,8 @@ package service
 import (
 	"time"
 
+	"gorm.io/gorm"
+
 	"hrms/backend/internal/repository"
 )
 
@@ -43,16 +45,23 @@ type DashboardStats struct {
 
 // DashboardService 仪表盘业务服务
 type DashboardService struct {
+	db   *gorm.DB // 数据范围解析用（ResolveScope）
 	repo *repository.DashboardRepo
 }
 
 // NewDashboardService 创建仪表盘服务
-func NewDashboardService(repo *repository.DashboardRepo) *DashboardService {
-	return &DashboardService{repo: repo}
+func NewDashboardService(db *gorm.DB, repo *repository.DashboardRepo) *DashboardService {
+	return &DashboardService{db: db, repo: repo}
 }
 
-// Stats 汇总仪表盘统计
-func (s *DashboardService) Stats() (*DashboardStats, error) {
+// Stats 汇总仪表盘统计；按登录用户数据范围过滤：
+// hr 角色绑定了部门范围（dept_scope_id）时，各统计项仅统计该部门及子孙部门；
+// admin/manager/employee 无范围 → 全量统计（现状不变）
+func (s *DashboardService) Stats(roleCode string, userID uint) (*DashboardStats, error) {
+	deptIDs, err := ResolveScope(s.db, userID, roleCode)
+	if err != nil {
+		return nil, err
+	}
 	now := time.Now()
 	monthStart := time.Date(now.Year(), now.Month(), 1, 0, 0, 0, 0, now.Location())
 	nextMonthStart := monthStart.AddDate(0, 1, 0)
@@ -62,39 +71,38 @@ func (s *DashboardService) Stats() (*DashboardStats, error) {
 
 	stats := &DashboardStats{}
 
-	var err error
-	if stats.TotalEmployees, err = s.repo.CountEmployees(); err != nil {
+	if stats.TotalEmployees, err = s.repo.CountEmployees(deptIDs); err != nil {
 		return nil, err
 	}
-	if stats.ActiveEmployees, err = s.repo.CountActiveEmployees(); err != nil {
+	if stats.ActiveEmployees, err = s.repo.CountActiveEmployees(deptIDs); err != nil {
 		return nil, err
 	}
-	if stats.MonthNewEmployees, err = s.repo.CountMonthNewEmployees(monthStart); err != nil {
+	if stats.MonthNewEmployees, err = s.repo.CountMonthNewEmployees(monthStart, deptIDs); err != nil {
 		return nil, err
 	}
-	if stats.MonthResigned, err = s.repo.CountMonthResigned(monthStart); err != nil {
+	if stats.MonthResigned, err = s.repo.CountMonthResigned(monthStart, deptIDs); err != nil {
 		return nil, err
 	}
-	if stats.MonthAttendanceRate, err = s.repo.MonthAttendanceRate(monthStart, nextMonthStart); err != nil {
+	if stats.MonthAttendanceRate, err = s.repo.MonthAttendanceRate(monthStart, nextMonthStart, deptIDs); err != nil {
 		return nil, err
 	}
-	if stats.TodayLeaveCount, err = s.repo.TodayLeaveCount(today); err != nil {
+	if stats.TodayLeaveCount, err = s.repo.TodayLeaveCount(today, deptIDs); err != nil {
 		return nil, err
 	}
-	if stats.PendingLeaveCount, err = s.repo.PendingLeaveCount(); err != nil {
+	if stats.PendingLeaveCount, err = s.repo.PendingLeaveCount(deptIDs); err != nil {
 		return nil, err
 	}
-	if stats.PendingSalaryCount, err = s.repo.PendingSalaryCount(); err != nil {
+	if stats.PendingSalaryCount, err = s.repo.PendingSalaryCount(deptIDs); err != nil {
 		return nil, err
 	}
-	if stats.OpenJobCount, err = s.repo.OpenJobCount(); err != nil {
+	if stats.OpenJobCount, err = s.repo.OpenJobCount(deptIDs); err != nil {
 		return nil, err
 	}
-	if stats.CandidateCount, err = s.repo.CandidateCount(); err != nil {
+	if stats.CandidateCount, err = s.repo.CandidateCount(deptIDs); err != nil {
 		return nil, err
 	}
 
-	deptRows, err := s.repo.DepartmentDistribution()
+	deptRows, err := s.repo.DepartmentDistribution(deptIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -106,13 +114,13 @@ func (s *DashboardService) Stats() (*DashboardStats, error) {
 		})
 	}
 
-	recruitRows, err := s.repo.RecruitTrend(trendStart)
+	recruitRows, err := s.repo.RecruitTrend(trendStart, deptIDs)
 	if err != nil {
 		return nil, err
 	}
 	stats.RecruitTrend = fillMonthCounts(lastMonths(6), recruitRows)
 
-	salaryRows, err := s.repo.SalaryTrend(startMonth)
+	salaryRows, err := s.repo.SalaryTrend(startMonth, deptIDs)
 	if err != nil {
 		return nil, err
 	}

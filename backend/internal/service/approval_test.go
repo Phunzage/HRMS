@@ -57,6 +57,49 @@ func TestStartApprovalCreatesInstanceAndTask(t *testing.T) {
 	}
 }
 
+// TestApprovalHRPoolStepNotifiesAllHR HR 池步骤（HR终审）创建时向所有启用 HR 用户广播待审批通知；
+// 步骤1（经理）创建时不应通知 HR
+func TestApprovalHRPoolStepNotifiesAllHR(t *testing.T) {
+	db := mustTestDB(t)
+	tx := db.Begin()
+	defer tx.Rollback()
+	fx := setupLeaveFixture(t, tx)
+	svc := newLeaveSvc(tx)
+
+	start, end := dateRange(2)
+	leave, err := svc.Create(fx.EmpUserID, SubmitLeaveRequest{
+		LeaveType: "annual", StartDate: start, EndDate: end, Reason: "HR池通知",
+	})
+	if err != nil {
+		t.Fatalf("提交请假失败: %v", err)
+	}
+	inst, err := GetInstanceByBiz(tx, "leave", leave.ID)
+	if err != nil {
+		t.Fatalf("查询审批实例失败: %v", err)
+	}
+	// 步骤1（经理审批）创建时不应通知 HR
+	var hrNotif int64
+	if err := tx.Model(&models.Notification{}).
+		Where("user_id = ? AND type = ?", fx.HRUserID, NotifTypeLeaveApproval).
+		Count(&hrNotif).Error; err != nil {
+		t.Fatalf("查询通知失败: %v", err)
+	}
+	if hrNotif != 0 {
+		t.Errorf("步骤1创建时不应通知 HR，实际通知数 %d", hrNotif)
+	}
+
+	// 经理通过 → 推进至步骤2（HR 池）→ 应通知所有启用 HR 用户
+	approveTask(t, tx, svc, stepTask(t, tx, inst, 1).ID, fx.ManagerUserID)
+	if err := tx.Model(&models.Notification{}).
+		Where("user_id = ? AND type = ?", fx.HRUserID, NotifTypeLeaveApproval).
+		Count(&hrNotif).Error; err != nil {
+		t.Fatalf("查询通知失败: %v", err)
+	}
+	if hrNotif == 0 {
+		t.Error("HR 池步骤创建后应广播待审批通知给 HR 用户")
+	}
+}
+
 // TestApprovalManagerToHRFullFlow 完整两级链路：经理通过→实例推进至步骤2→HR 终审通过→业务回调生效
 func TestApprovalManagerToHRFullFlow(t *testing.T) {
 	db := mustTestDB(t)

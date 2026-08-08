@@ -24,17 +24,40 @@ func NewAnnouncement(svc *service.AnnouncementService, db *gorm.DB) *Announcemen
 	return &Announcement{service: svc, db: db}
 }
 
-// List 公告分页列表（published 优先置顶+时间倒序），支持 keyword 搜索标题
+// List 公告分页列表（published 优先置顶+时间倒序），支持 keyword 搜索标题，每条带当前用户 is_read
 func (h *Announcement) List(c *gin.Context) {
 	keyword := c.Query("keyword")
 	status := c.Query("status")
 	page, pageSize := response.Pagination(c)
-	items, total, err := h.service.List(keyword, status, page, pageSize)
+	items, total, err := h.service.List(middleware.GetUserID(c), keyword, status, page, pageSize)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, 500, "获取公告列表失败")
 		return
 	}
 	response.PageOK(c, items, total, page, pageSize)
+}
+
+// MarkRead 标记当前用户已读某公告（幂等 upsert）
+func (h *Announcement) MarkRead(c *gin.Context) {
+	id, err := parseID(c)
+	if err != nil {
+		response.Error(c, http.StatusBadRequest, 400, "参数错误")
+		return
+	}
+	if err := h.service.MarkRead(middleware.GetUserID(c), id); err != nil {
+		h.handleErr(c, err)
+		return
+	}
+	response.OK(c, nil)
+}
+
+// MarkAllRead 标记当前用户已读全部 published 公告（幂等）
+func (h *Announcement) MarkAllRead(c *gin.Context) {
+	if err := h.service.MarkAllRead(middleware.GetUserID(c)); err != nil {
+		response.Error(c, http.StatusInternalServerError, 500, "全部标记已读失败")
+		return
+	}
+	response.OK(c, nil)
 }
 
 // Create 发布公告
