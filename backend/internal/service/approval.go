@@ -31,19 +31,27 @@ type ApprovalBizCallback interface {
 }
 
 // TaskItem 我的待审批/历史任务项（JOIN 业务表带出申请人、摘要、跳转链接）
+// 业务明细字段（leave_type/days/reason/work_date 等）仅供前端列表精确展示，可选返回
 type TaskItem struct {
-	ID            uint      `json:"id"`
-	InstanceID    uint      `json:"instance_id"`
-	StepOrder     int       `json:"step_order"`
-	StepName      string    `json:"step_name"`
-	ApproverType  string    `json:"approver_type"`
-	BizType       string    `json:"biz_type"`
-	BizID         uint      `json:"biz_id"`
-	ApplicantName string    `json:"applicant_name"`
-	Summary       string    `json:"summary"` // 业务摘要（申请人 + 类型 + 时间范围）
-	Status        string    `json:"status"`
-	Link          string    `json:"link"`
-	CreatedAt     time.Time `json:"created_at"`
+	ID             uint       `json:"id"`
+	InstanceID     uint       `json:"instance_id"`
+	StepOrder      int        `json:"step_order"`
+	StepName       string     `json:"step_name"`
+	ApproverType   string     `json:"approver_type"`
+	BizType        string     `json:"biz_type"`
+	BizID          uint       `json:"biz_id"`
+	ApplicantName  string     `json:"applicant_name"`
+	DepartmentName string     `json:"department_name"`
+	Summary        string     `json:"summary"` // 业务摘要（申请人 + 类型 + 时间范围）
+	Status         string     `json:"status"`
+	Link           string     `json:"link"`
+	LeaveType      string     `json:"leave_type"`
+	Days           float64    `json:"days"`
+	Reason         string     `json:"reason"`
+	WorkDate       *time.Time `json:"work_date"`
+	CorrectionType string     `json:"correction_type"`
+	CorrectionTime string     `json:"correction_time"`
+	CreatedAt      time.Time  `json:"created_at"`
 }
 
 // TaskDetail 审批进度时间线项（含步骤名、审批人姓名）
@@ -282,13 +290,15 @@ func ListMyTasks(db *gorm.DB, userID uint, status string) ([]TaskItem, error) {
 	q := db.Table("approval_tasks").
 		Select(`approval_tasks.*, ai.biz_type, ai.biz_id, ai.status AS instance_status,
 			COALESCE(ast.name, '') AS step_name, COALESCE(e.name, '') AS applicant_name,
-			lr.leave_type, lr.days, lr.start_date, lr.end_date,
+			COALESCE(d.name, '') AS department_name,
+			lr.leave_type, lr.days, lr.start_date, lr.end_date, lr.reason,
 			ac.work_date, ac.correction_type, ac.correction_time`).
 		Joins("JOIN approval_instances ai ON ai.id = approval_tasks.instance_id").
 		Joins("LEFT JOIN approval_steps ast ON ast.flow_id = ai.flow_id AND ast.step_order = approval_tasks.step_order").
 		Joins("LEFT JOIN leave_requests lr ON ai.biz_type = 'leave' AND lr.id = ai.biz_id").
 		Joins("LEFT JOIN attendance_corrections ac ON ai.biz_type = 'attendance_correction' AND ac.id = ai.biz_id").
-		Joins("LEFT JOIN employees e ON e.id = COALESCE(lr.employee_id, ac.employee_id)")
+		Joins("LEFT JOIN employees e ON e.id = COALESCE(lr.employee_id, ac.employee_id)").
+		Joins("LEFT JOIN departments d ON d.id = e.department_id")
 
 	if isHR {
 		// hr/admin：自己名下的任务 + HR 池任务（approver_type=hr 且未指派）
@@ -303,6 +313,9 @@ func ListMyTasks(db *gorm.DB, userID uint, status string) ([]TaskItem, error) {
 		q = q.Where("approval_tasks.status = ? AND ai.status = ?", "pending", "pending")
 	case "approved", "rejected":
 		q = q.Where("approval_tasks.status = ?", status)
+	case "done":
+		// 我处理的全部历史（通过+驳回）
+		q = q.Where("approval_tasks.status IN (?, ?)", "approved", "rejected")
 	}
 
 	rows := make([]taskRow, 0)
@@ -376,10 +389,12 @@ type taskRow struct {
 	InstanceStatus string     `gorm:"column:instance_status"`
 	StepName       string     `gorm:"column:step_name"`
 	ApplicantName  string     `gorm:"column:applicant_name"`
+	DepartmentName string     `gorm:"column:department_name"`
 	LeaveType      string     `gorm:"column:leave_type"`
 	Days           float64    `gorm:"column:days"`
 	StartDate      *time.Time `gorm:"column:start_date"`
 	EndDate        *time.Time `gorm:"column:end_date"`
+	Reason         string     `gorm:"column:reason"`
 	WorkDate       *time.Time `gorm:"column:work_date"`
 	CorrectionType string     `gorm:"column:correction_type"`
 	CorrectionTime string     `gorm:"column:correction_time"`
@@ -388,16 +403,23 @@ type taskRow struct {
 // buildTaskItem 组装待办/历史任务项：按业务类型拼装摘要与跳转链接
 func buildTaskItem(r *taskRow) TaskItem {
 	item := TaskItem{
-		ID:            r.ID,
-		InstanceID:    r.InstanceID,
-		StepOrder:     r.StepOrder,
-		StepName:      r.StepName,
-		ApproverType:  r.ApproverType,
-		BizType:       r.BizType,
-		BizID:         r.BizID,
-		ApplicantName: r.ApplicantName,
-		Status:        r.Status,
-		CreatedAt:     r.CreatedAt,
+		ID:             r.ID,
+		InstanceID:     r.InstanceID,
+		StepOrder:      r.StepOrder,
+		StepName:       r.StepName,
+		ApproverType:   r.ApproverType,
+		BizType:        r.BizType,
+		BizID:          r.BizID,
+		ApplicantName:  r.ApplicantName,
+		DepartmentName: r.DepartmentName,
+		Status:         r.Status,
+		LeaveType:      r.LeaveType,
+		Days:           r.Days,
+		Reason:         r.Reason,
+		WorkDate:       r.WorkDate,
+		CorrectionType: r.CorrectionType,
+		CorrectionTime: r.CorrectionTime,
+		CreatedAt:      r.CreatedAt,
 	}
 	switch r.BizType {
 	case "leave":

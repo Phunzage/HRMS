@@ -8,6 +8,7 @@ import DepartmentTree from './pages/DepartmentTree'
 import PositionPage from './pages/PositionPage'
 import AttendancePage from './pages/AttendancePage'
 import LeavePage from './pages/LeavePage'
+import ApprovalsPage from './pages/ApprovalsPage'
 import SalaryPage from './pages/SalaryPage'
 import AnnouncementsPage from './pages/Announcements'
 import PerformancePage from './pages/PerformancePage'
@@ -54,6 +55,7 @@ function App() {
         <Route path="/positions" element={<PositionPage />} />
         <Route path="/attendance" element={<AttendancePage />} />
         <Route path="/leaves" element={<LeavePage />} />
+        <Route path="/approvals" element={<ApprovalsPage />} />
         <Route path="/salaries" element={<SalaryPage />} />
         <Route path="/announcements" element={<AnnouncementsPage />} />
         <Route path="/performance" element={<PerformancePage />} />

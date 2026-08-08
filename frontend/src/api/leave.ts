@@ -63,15 +63,7 @@ export function submitLeave(data: SubmitLeavePayload) {
   return client.post('/leaves', data) as Promise<LeaveRequest>
 }
 
-// 审批通过
-export function approveLeave(id: number) {
-  return client.put(`/leaves/${id}/approve`) as Promise<null>
-}
-
-// 驳回
-export function rejectLeave(id: number, reason: string) {
-  return client.put(`/leaves/${id}/reject`, { reject_reason: reason }) as Promise<null>
-}
+// 审批动作已迁移至 /approvals 通用接口（见 approval.ts），此处仅保留取消
 
 // 取消申请
 export function cancelLeave(id: number) {

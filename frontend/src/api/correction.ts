@@ -46,15 +46,7 @@ export function fetchMyCorrections(params: { page?: number; page_size?: number }
   return client.get('/attendance/corrections/mine', { params }) as Promise<PageResult<CorrectionItem>>
 }
 
-// 审批通过
-export function approveCorrection(id: number) {
-  return client.put(`/attendance/corrections/${id}/approve`) as Promise<null>
-}
-
-// 驳回（需原因）
-export function rejectCorrection(id: number, rejectReason: string) {
-  return client.put(`/attendance/corrections/${id}/reject`, { reject_reason: rejectReason }) as Promise<null>
-}
+// 审批动作已迁移至 /approvals 通用接口（见 approval.ts），此处仅保留取消
 
 // 取消自己的 pending 补卡申请
 export function cancelCorrection(id: number) {

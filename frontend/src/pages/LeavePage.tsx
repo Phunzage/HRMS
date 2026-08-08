@@ -1,25 +1,30 @@
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useCallback, useEffect, useState, type ReactNode } from 'react'
 import {
   fetchLeaves,
   fetchMyLeaves,
   fetchLeaveBalance,
   submitLeave,
-  approveLeave,
-  rejectLeave,
   cancelLeave,
   type LeaveRequest,
   type LeaveBalance,
   type LeaveMineResult,
 } from '../api/leave'
+import {
+  fetchMyApprovals,
+  approveTask,
+  rejectTask,
+  type ApprovalTaskItem,
+} from '../api/approval'
 import type { PageResult } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { toast } from '../store/toast'
 import { LEAVE_STATUS, LEAVE_TYPE } from '../utils/status'
-import { formatDate, formatDays } from '../utils/format'
+import { formatDate, formatDateTime, formatDays } from '../utils/format'
 import Modal from '../components/Modal'
 import Field from '../components/FormField'
 import Pagination from '../components/Pagination'
 import StatusBadge from '../components/StatusBadge'
+import ProgressExpand from '../components/ProgressExpand'
 
 const PAGE_SIZE = 10
 
@@ -45,8 +50,6 @@ export default function LeavePage() {
   const role = user?.role_code
   const showTodo = role === 'admin' || role === 'hr' || role === 'manager'
   const showAll = role === 'admin' || role === 'hr'
-  // 审批动作仅 hr/manager（admin 只读监督，可查看待办但不可操作）
-  const canApprove = role === 'hr' || role === 'manager'
 
   // admin/hr 无个人员工档案，默认落在「全部申请」
   const [activeTab, setActiveTab] = useState<TabKey>(showAll ? 'all' : 'mine')
@@ -58,8 +61,8 @@ export default function LeavePage() {
   const [mine, setMine] = useState<LeaveMineResult | null>(null)
   const [minePage, setMinePage] = useState(1)
 
-  // 待我审批
-  const [todo, setTodo] = useState<LeaveRequest[]>([])
+  // 待我审批（通用审批任务：经理第1步 / hr 第2步终审）
+  const [todo, setTodo] = useState<ApprovalTaskItem[]>([])
   const [todoLoading, setTodoLoading] = useState(false)
 
   // 全部申请
@@ -71,12 +74,15 @@ export default function LeavePage() {
   const [listError, setListError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
 
+  // 我的申请行内进度展开
+  const [progressLeaveId, setProgressLeaveId] = useState<number | null>(null)
+
   // 弹窗状态
   const [submitOpen, setSubmitOpen] = useState(false)
   const [submitForm, setSubmitForm] = useState<SubmitForm>(emptySubmit)
   const [submitting, setSubmitting] = useState(false)
 
-  const [rejectTarget, setRejectTarget] = useState<LeaveRequest | null>(null)
+  const [rejectTarget, setRejectTarget] = useState<ApprovalTaskItem | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [rejecting, setRejecting] = useState(false)
 
@@ -108,22 +114,16 @@ export default function LeavePage() {
     }
   }, [activeTab, minePage, reloadKey])
 
-  // 待我审批
+  // 待我审批：只显示属于我的审批任务（后端按 ApproverID/HR 池过滤）
   const loadTodo = useCallback(() => {
     setTodoLoading(true)
-    fetchLeaves({ status: 'pending', page: 1, page_size: 100 })
+    fetchMyApprovals({ status: 'pending' })
       .then((res) => {
-        // 空结果时后端返回 null 兜底为空数组，避免存入 null 导致列表渲染崩溃
-        let list = res.list ?? []
-        // 经理只能审批指派给自己的申请
-        if (role === 'manager' && user?.employee_id) {
-          list = list.filter((l) => l.approver_id === user.employee_id)
-        }
-        setTodo(list)
+        setTodo(Array.isArray(res) ? res : [])
       })
-      .catch(() => toast.error('获取待审批列表失败'))
+      .catch(() => toast.error('获取待审批任务失败'))
       .finally(() => setTodoLoading(false))
-  }, [role, user?.employee_id])
+  }, [])
 
   useEffect(() => {
     if (activeTab === 'todo') {
@@ -163,7 +163,7 @@ export default function LeavePage() {
         end_date: submitForm.end_date,
         reason: submitForm.reason,
       })
-      toast.success('请假申请已提交')
+      toast.success('已提交，等待部门经理审批')
       setSubmitOpen(false)
       setSubmitForm(emptySubmit)
       // 刷新余额与列表
@@ -178,21 +178,30 @@ export default function LeavePage() {
     }
   }
 
-  const handleApprove = (leave: LeaveRequest) => {
-    approveLeave(leave.id)
-      .then(() => {
-        toast.success('审批已通过')
+  // 待我审批：通过（返回实例 status 判断是否还有下一步终审）
+  const handleApproveTodo = (item: ApprovalTaskItem) => {
+    approveTask(item.id)
+      .then((inst) => {
+        if (inst.status === 'approved') {
+          toast.success('审批已通过')
+        } else {
+          toast.success('已通过，等待 HR 终审')
+        }
         reload()
       })
       .catch((err: unknown) => toast.error(err instanceof Error ? err.message : '审批失败'))
   }
 
-  const handleReject = async () => {
+  const handleRejectTodo = async () => {
     if (!rejectTarget) return
+    if (!rejectReason.trim()) {
+      toast.error('请填写驳回原因')
+      return
+    }
     setRejecting(true)
     try {
-      await rejectLeave(rejectTarget.id, rejectReason)
-      toast.success('申请已驳回')
+      await rejectTask(rejectTarget.id, rejectReason.trim())
+      toast.success('已驳回申请')
       setRejectTarget(null)
       setRejectReason('')
       reload()
@@ -216,6 +225,7 @@ export default function LeavePage() {
   const switchTab = (tab: TabKey) => {
     setActiveTab(tab)
     setListError('')
+    setProgressLeaveId(null)
   }
 
   // 余额徽章
@@ -312,30 +322,25 @@ export default function LeavePage() {
                 <span className="loading loading-spinner loading-lg text-primary" />
               </div>
             ) : (
-              <LeaveTable
+              <ApprovalTaskTable
                 list={todo}
-                columns={['申请人', '部门', '类型', '开始', '结束', '天数', '事由', '状态']}
-                actions={(l) =>
-                  canApprove ? (
-                    <div className="flex justify-end gap-1">
-                      <button type="button" className="btn btn-success btn-xs" onClick={() => handleApprove(l)}>
-                        通过
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost btn-xs text-error"
-                        onClick={() => {
-                          setRejectTarget(l)
-                          setRejectReason('')
-                        }}
-                      >
-                        驳回
-                      </button>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-base-content/40">-</span>
-                  )
-                }
+                actions={(item) => (
+                  <div className="flex justify-end gap-1">
+                    <button type="button" className="btn btn-success btn-xs" onClick={() => handleApproveTodo(item)}>
+                      通过
+                    </button>
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs text-error"
+                      onClick={() => {
+                        setRejectTarget(item)
+                        setRejectReason('')
+                      }}
+                    >
+                      驳回
+                    </button>
+                  </div>
+                )}
               />
             )
           ) : listLoading ? (
@@ -347,15 +352,24 @@ export default function LeavePage() {
               <LeaveTable
                 list={mine?.list ?? []}
                 columns={['类型', '开始', '结束', '天数', '事由', '状态']}
-                actions={(l) =>
-                  l.status === 'pending' ? (
-                    <div className="flex justify-end">
+                expandedId={progressLeaveId}
+                renderExpanded={(l) => <ProgressExpand bizType="leave" bizId={l.id} />}
+                actions={(l) => (
+                  <div className="flex justify-end gap-1">
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => setProgressLeaveId(progressLeaveId === l.id ? null : l.id)}
+                    >
+                      {progressLeaveId === l.id ? '收起进度' : '进度'}
+                    </button>
+                    {l.status === 'pending' && (
                       <button type="button" className="btn btn-ghost btn-xs" onClick={() => handleCancel(l)}>
                         取消
                       </button>
-                    </div>
-                  ) : null
-                }
+                    )}
+                  </div>
+                )}
               />
               {mine && (
                 <div className="mt-2">
@@ -467,7 +481,7 @@ export default function LeavePage() {
             <button type="button" className="btn btn-ghost" onClick={() => setRejectTarget(null)}>
               取消
             </button>
-            <button type="button" className="btn btn-error" disabled={rejecting} onClick={handleReject}>
+            <button type="button" className="btn btn-error" disabled={rejecting} onClick={handleRejectTodo}>
               {rejecting && <span className="loading loading-spinner loading-sm" />}
               确认驳回
             </button>
@@ -488,14 +502,65 @@ export default function LeavePage() {
   )
 }
 
-// 请假列表通用表格
+// 待我审批表格：申请人/部门/类型/天数/事由/提交时间/操作
+interface ApprovalTaskTableProps {
+  list: ApprovalTaskItem[]
+  actions: (item: ApprovalTaskItem) => ReactNode
+}
+
+function ApprovalTaskTable({ list, actions }: ApprovalTaskTableProps) {
+  const rows = list ?? []
+  return (
+    <div className="overflow-x-auto">
+      <table className="table table-sm">
+        <thead>
+          <tr>
+            <th>申请人</th>
+            <th>部门</th>
+            <th>类型</th>
+            <th>天数</th>
+            <th>事由</th>
+            <th>提交时间</th>
+            <th className="text-right">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((item) => (
+            <tr key={item.id}>
+              <td className="font-medium">{item.applicant_name || '未知'}</td>
+              <td>{item.department_name || '-'}</td>
+              <td>{LEAVE_TYPE[item.leave_type ?? ''] ?? item.leave_type ?? '-'}</td>
+              <td>{item.days ? formatDays(item.days) : '-'}</td>
+              <td className="max-w-40 truncate text-base-content/60">{item.reason || '-'}</td>
+              <td className="text-base-content/60">{formatDateTime(item.created_at)}</td>
+              <td className="text-right">{actions(item)}</td>
+            </tr>
+          ))}
+          {!rows.length && (
+            <tr>
+              <td colSpan={7} className="py-8 text-center text-base-content/50">
+                暂无待审批任务
+              </td>
+            </tr>
+          )}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+// 请假列表通用表格（支持行内展开审批进度）
 interface LeaveTableProps {
   list: LeaveRequest[]
   columns: string[]
   actions: (leave: LeaveRequest) => ReactNode
+  /** 展开行的记录 ID（行内进度时间线） */
+  expandedId?: number | null
+  /** 展开行内容渲染 */
+  renderExpanded?: (leave: LeaveRequest) => ReactNode
 }
 
-function LeaveTable({ list, columns, actions }: LeaveTableProps) {
+function LeaveTable({ list, columns, actions, expandedId, renderExpanded }: LeaveTableProps) {
   // 兜底：list 为 null/undefined 时按空数组渲染，防止 .map 崩溃
   const rows = list ?? []
   const hasApplicant = columns[0] === '申请人'
@@ -512,19 +577,28 @@ function LeaveTable({ list, columns, actions }: LeaveTableProps) {
         </thead>
         <tbody>
           {rows.map((l) => (
-            <tr key={l.id}>
-              {hasApplicant && <td className="font-medium">{l.employee_name || `#${l.employee_id}`}</td>}
-              {hasApplicant && <td>{l.department_name || '-'}</td>}
-              <td>{LEAVE_TYPE[l.leave_type] ?? l.leave_type}</td>
-              <td>{formatDate(l.start_date)}</td>
-              <td>{formatDate(l.end_date)}</td>
-              <td>{formatDays(l.days)}</td>
-              <td className="max-w-40 truncate text-base-content/60">{l.reason || '-'}</td>
-              <td>
-                <StatusBadge map={LEAVE_STATUS} value={l.status} />
-              </td>
-              <td className="text-right">{actions(l)}</td>
-            </tr>
+            <Fragment key={l.id}>
+              <tr>
+                {hasApplicant && <td className="font-medium">{l.employee_name || `#${l.employee_id}`}</td>}
+                {hasApplicant && <td>{l.department_name || '-'}</td>}
+                <td>{LEAVE_TYPE[l.leave_type] ?? l.leave_type}</td>
+                <td>{formatDate(l.start_date)}</td>
+                <td>{formatDate(l.end_date)}</td>
+                <td>{formatDays(l.days)}</td>
+                <td className="max-w-40 truncate text-base-content/60">{l.reason || '-'}</td>
+                <td>
+                  <StatusBadge map={LEAVE_STATUS} value={l.status} />
+                </td>
+                <td className="text-right">{actions(l)}</td>
+              </tr>
+              {expandedId === l.id && renderExpanded && (
+                <tr className="bg-base-200/50">
+                  <td colSpan={columns.length + 1} className="px-6 py-3">
+                    {renderExpanded(l)}
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           ))}
           {!rows.length && (
             <tr>

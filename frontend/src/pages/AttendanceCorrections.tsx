@@ -1,13 +1,17 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   submitCorrection,
   fetchCorrections,
   fetchMyCorrections,
-  approveCorrection,
-  rejectCorrection,
   cancelCorrection,
   type CorrectionItem,
 } from '../api/correction'
+import {
+  fetchMyApprovals,
+  approveTask,
+  rejectTask,
+  type ApprovalTaskItem,
+} from '../api/approval'
 import type { PageResult } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { toast } from '../store/toast'
@@ -17,6 +21,7 @@ import Modal from '../components/Modal'
 import Field from '../components/FormField'
 import Pagination from '../components/Pagination'
 import StatusBadge from '../components/StatusBadge'
+import ProgressExpand from '../components/ProgressExpand'
 
 const PAGE_SIZE = 10
 
@@ -38,9 +43,8 @@ const emptyForm: CorrectionForm = {
 export default function AttendanceCorrections() {
   const user = useAuthStore((s) => s.user)
   const role = user?.role_code
-  // 审批/全部列表可见角色：hr/manager 可审批；admin 只读浏览；员工仅看自己
+  // 审批/全部列表可见角色：admin/hr/manager 可审批（admin 可审 HR 池任务），员工仅看自己
   const canBrowse = role === 'admin' || role === 'hr' || role === 'manager'
-  const canApprove = role === 'hr' || role === 'manager'
   const canSubmit = !!user?.employee_id
 
   // 审批列表（admin/hr/manager）
@@ -56,6 +60,12 @@ export default function AttendanceCorrections() {
   const [mineLoading, setMineLoading] = useState(true)
   const [mineError, setMineError] = useState('')
 
+  // 我拥有的待审批任务（用于补卡列表仅对任务归属人显示审批按钮）
+  const [myApprovals, setMyApprovals] = useState<ApprovalTaskItem[]>([])
+
+  // 行内进度展开
+  const [expandedId, setExpandedId] = useState<number | null>(null)
+
   const [reloadKey, setReloadKey] = useState(0)
 
   // 提交弹窗
@@ -63,10 +73,20 @@ export default function AttendanceCorrections() {
   const [form, setForm] = useState<CorrectionForm>(emptyForm)
   const [submitting, setSubmitting] = useState(false)
 
-  // 驳回弹窗
+  // 驳回弹窗（业务记录 + 对应审批任务 ID）
   const [rejectTarget, setRejectTarget] = useState<CorrectionItem | null>(null)
+  const [rejectTaskId, setRejectTaskId] = useState<number | null>(null)
   const [rejectReason, setRejectReason] = useState('')
   const [rejecting, setRejecting] = useState(false)
+
+  // 补卡业务ID → 我的待审批任务ID 映射（仅任务归属人可操作）
+  const myTaskByCorrId = useMemo(() => {
+    const map: Record<number, number> = {}
+    for (const a of myApprovals) {
+      if (a.biz_type === 'attendance_correction') map[a.biz_id] = a.id
+    }
+    return map
+  }, [myApprovals])
 
   // 审批/全部列表
   useEffect(() => {
@@ -93,7 +113,7 @@ export default function AttendanceCorrections() {
     }
   }, [canBrowse, allStatus, allPage, reloadKey])
 
-  // 我的补卡记录
+  // 我的补卡记录（employee）
   useEffect(() => {
     if (canBrowse) return
     let cancelled = false
@@ -114,7 +134,23 @@ export default function AttendanceCorrections() {
     }
   }, [canBrowse, minePage, reloadKey])
 
+  // 我拥有的待审批任务（审批按钮归属校验，admin/hr 含 HR 池任务）
+  useEffect(() => {
+    if (!canBrowse) return
+    let cancelled = false
+    fetchMyApprovals({ status: 'pending' })
+      .then((res) => {
+        if (!cancelled) setMyApprovals(Array.isArray(res) ? res : [])
+      })
+      .catch(() => setMyApprovals([]))
+    return () => {
+      cancelled = true
+    }
+  }, [canBrowse, reloadKey])
+
   const reload = () => setReloadKey((k) => k + 1)
+
+  const toggleProgress = (id: number) => setExpandedId((cur) => (cur === id ? null : id))
 
   const handleSubmit = async () => {
     if (!form.work_date || !form.correction_time) {
@@ -129,7 +165,7 @@ export default function AttendanceCorrections() {
         correction_time: form.correction_time,
         reason: form.reason,
       })
-      toast.success('补卡申请已提交')
+      toast.success('已提交，等待部门经理审批')
       setSubmitOpen(false)
       setForm(emptyForm)
       reload()
@@ -140,26 +176,32 @@ export default function AttendanceCorrections() {
     }
   }
 
-  const handleApprove = (item: CorrectionItem) => {
-    approveCorrection(item.id)
-      .then(() => {
-        toast.success('已通过补卡申请')
+  // 审批通过（通用接口，返回实例状态判断是否还有下一步终审）
+  const handleApprove = (taskId: number) => {
+    approveTask(taskId)
+      .then((inst) => {
+        if (inst.status === 'approved') {
+          toast.success('补卡审批已通过')
+        } else {
+          toast.success('已通过，等待 HR 终审')
+        }
         reload()
       })
       .catch((err: unknown) => toast.error(err instanceof Error ? err.message : '操作失败'))
   }
 
   const handleReject = async () => {
-    if (!rejectTarget) return
+    if (!rejectTarget || !rejectTaskId) return
     if (!rejectReason.trim()) {
       toast.error('请填写驳回原因')
       return
     }
     setRejecting(true)
     try {
-      await rejectCorrection(rejectTarget.id, rejectReason.trim())
+      await rejectTask(rejectTaskId, rejectReason.trim())
       toast.success('已驳回补卡申请')
       setRejectTarget(null)
+      setRejectTaskId(null)
       setRejectReason('')
       reload()
     } catch (err) {
@@ -232,31 +274,48 @@ export default function AttendanceCorrections() {
                 <CorrectionTable
                   list={allData?.list ?? []}
                   showApplicant
-                  actions={(item) =>
-                    item.status === 'pending' ? (
-                      canApprove ? (
-                        <div className="flex justify-end gap-1">
-                          <button type="button" className="btn btn-success btn-xs" onClick={() => handleApprove(item)}>
-                            通过
-                          </button>
-                          <button
-                            type="button"
-                            className="btn btn-ghost btn-xs text-error"
-                            onClick={() => {
-                              setRejectTarget(item)
-                              setRejectReason('')
-                            }}
-                          >
-                            驳回
-                          </button>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-base-content/40">-</span>
-                      )
-                    ) : (
-                      <span className="text-xs text-base-content/40">{item.reject_reason || '-'}</span>
+                  expandedId={expandedId}
+                  renderExpanded={(item) => <ProgressExpand bizType="attendance_correction" bizId={item.id} />}
+                  actions={(item) => {
+                    const taskId = myTaskByCorrId[item.id]
+                    return (
+                      <div className="flex justify-end gap-1">
+                        <button
+                          type="button"
+                          className="btn btn-ghost btn-xs"
+                          onClick={() => toggleProgress(item.id)}
+                        >
+                          {expandedId === item.id ? '收起进度' : '进度'}
+                        </button>
+                        {item.status === 'pending' && taskId ? (
+                          <>
+                            <button
+                              type="button"
+                              className="btn btn-success btn-xs"
+                              onClick={() => handleApprove(taskId)}
+                            >
+                              通过
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-ghost btn-xs text-error"
+                              onClick={() => {
+                                setRejectTarget(item)
+                                setRejectTaskId(taskId)
+                                setRejectReason('')
+                              }}
+                            >
+                              驳回
+                            </button>
+                          </>
+                        ) : (
+                          <span className="text-xs text-base-content/40">
+                            {item.status === 'pending' ? '他人处理中' : '-'}
+                          </span>
+                        )}
+                      </div>
                     )
-                  }
+                  }}
                 />
                 {allData && (
                   <div className="mt-2">
@@ -278,17 +337,24 @@ export default function AttendanceCorrections() {
               <CorrectionTable
                 list={mine?.list ?? []}
                 showApplicant={false}
-                actions={(item) =>
-                  item.status === 'pending' ? (
-                    <div className="flex justify-end">
+                expandedId={expandedId}
+                renderExpanded={(item) => <ProgressExpand bizType="attendance_correction" bizId={item.id} />}
+                actions={(item) => (
+                  <div className="flex justify-end gap-1">
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs"
+                      onClick={() => toggleProgress(item.id)}
+                    >
+                      {expandedId === item.id ? '收起进度' : '进度'}
+                    </button>
+                    {item.status === 'pending' && (
                       <button type="button" className="btn btn-ghost btn-xs" onClick={() => handleCancel(item)}>
                         取消
                       </button>
-                    </div>
-                  ) : (
-                    <span className="text-xs text-base-content/40">{item.reject_reason || '-'}</span>
-                  )
-                }
+                    )}
+                  </div>
+                )}
               />
               {mine && (
                 <div className="mt-2">
@@ -364,10 +430,20 @@ export default function AttendanceCorrections() {
       <Modal
         open={!!rejectTarget}
         title="驳回补卡申请"
-        onClose={() => setRejectTarget(null)}
+        onClose={() => {
+          setRejectTarget(null)
+          setRejectTaskId(null)
+        }}
         footer={
           <>
-            <button type="button" className="btn btn-ghost" onClick={() => setRejectTarget(null)}>
+            <button
+              type="button"
+              className="btn btn-ghost"
+              onClick={() => {
+                setRejectTarget(null)
+                setRejectTaskId(null)
+              }}
+            >
               取消
             </button>
             <button type="button" className="btn btn-error" disabled={rejecting} onClick={handleReject}>
@@ -391,16 +467,21 @@ export default function AttendanceCorrections() {
   )
 }
 
-// 补卡申请通用表格
+// 补卡申请通用表格（支持行内展开审批进度）
 function CorrectionTable({
   list,
   showApplicant,
   actions,
+  expandedId,
+  renderExpanded,
 }: {
   list: CorrectionItem[]
   showApplicant: boolean
   actions: (item: CorrectionItem) => ReactNode
+  expandedId?: number | null
+  renderExpanded?: (item: CorrectionItem) => ReactNode
 }) {
+  const rows = list ?? []
   return (
     <div className="overflow-x-auto">
       <table className="table table-sm">
@@ -418,22 +499,31 @@ function CorrectionTable({
           </tr>
         </thead>
         <tbody>
-          {list.map((item) => (
-            <tr key={item.id}>
-              {showApplicant && <td className="font-medium">{item.employee_name || `#${item.employee_id}`}</td>}
-              {showApplicant && <td>{item.department_name || '-'}</td>}
-              <td>{formatDate(item.work_date)}</td>
-              <td>{CORRECTION_TYPE[item.correction_type] ?? item.correction_type}</td>
-              <td className="font-mono text-xs">{item.correction_time}</td>
-              <td className="max-w-40 truncate text-base-content/60">{item.reason || '-'}</td>
-              <td>
-                <StatusBadge map={CORRECTION_STATUS} value={item.status} />
-              </td>
-              <td className="text-base-content/60">{formatDateTime(item.created_at)}</td>
-              <td className="text-right">{actions(item)}</td>
-            </tr>
+          {rows.map((item) => (
+            <Fragment key={item.id}>
+              <tr>
+                {showApplicant && <td className="font-medium">{item.employee_name || `#${item.employee_id}`}</td>}
+                {showApplicant && <td>{item.department_name || '-'}</td>}
+                <td>{formatDate(item.work_date)}</td>
+                <td>{CORRECTION_TYPE[item.correction_type] ?? item.correction_type}</td>
+                <td className="font-mono text-xs">{item.correction_time}</td>
+                <td className="max-w-40 truncate text-base-content/60">{item.reason || '-'}</td>
+                <td>
+                  <StatusBadge map={CORRECTION_STATUS} value={item.status} />
+                </td>
+                <td className="text-base-content/60">{formatDateTime(item.created_at)}</td>
+                <td className="text-right">{actions(item)}</td>
+              </tr>
+              {expandedId === item.id && renderExpanded && (
+                <tr className="bg-base-200/50">
+                  <td colSpan={showApplicant ? 9 : 7} className="px-6 py-3">
+                    {renderExpanded(item)}
+                  </td>
+                </tr>
+              )}
+            </Fragment>
           ))}
-          {!list.length && (
+          {!rows.length && (
             <tr>
               <td colSpan={showApplicant ? 9 : 7} className="py-8 text-center text-base-content/50">
                 暂无补卡申请
