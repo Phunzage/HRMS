@@ -34,8 +34,8 @@ const emptyForm: AnnouncementForm = {
 
 export default function AnnouncementsPage() {
   const role = useAuthStore((s) => s.user?.role_code)
-  // 公告增删改仅 hr（admin 只读监督）
-  const canManage = role === 'hr'
+  // 公告增删改 hr + admin（admin 需能发维护公告）
+  const canManage = role === 'hr' || role === 'admin'
   const setBadges = useBadgeStore((s) => s.setBadges)
 
   const [keyword, setKeyword] = useState('')

@@ -48,10 +48,11 @@ type TabKey = 'mine' | 'todo' | 'all'
 export default function LeavePage() {
   const user = useAuthStore((s) => s.user)
   const role = user?.role_code
-  const showTodo = role === 'admin' || role === 'hr' || role === 'manager'
-  const showAll = role === 'admin' || role === 'hr'
+  // admin 无请假审批入口（批次 26 后端已移除权限）；hr/manager 可审批
+  const showTodo = role === 'hr' || role === 'manager'
+  const showAll = role === 'hr'
 
-  // admin/hr 无个人员工档案，默认落在「全部申请」
+  // hr 无个人员工档案，默认落在「全部申请」
   const [activeTab, setActiveTab] = useState<TabKey>(showAll ? 'all' : 'mine')
 
   // 余额

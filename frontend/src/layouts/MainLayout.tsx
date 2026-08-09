@@ -34,7 +34,7 @@ import { fetchBadges, type Badges } from '../api/badge'
 import { formatDateTime } from '../utils/format'
 import ToastContainer from '../components/Toast'
 
-// 侧边栏菜单项：roles 控制可见角色（admin 拥有全部）；badge 关联角标字段（>0 时右侧显示）
+// 侧边栏菜单项：roles 控制可见角色（admin 仅保留仪表盘与公告管理，业务菜单已移除）；badge 关联角标字段（>0 时右侧显示）
 interface MenuItem {
   to: string
   label: string
@@ -46,17 +46,17 @@ interface MenuItem {
 
 const menuItems: MenuItem[] = [
   { to: '/', label: '仪表盘', icon: LayoutDashboard, end: true, roles: ['admin', 'hr'] },
-  { to: '/employees', label: '员工管理', icon: Users, roles: ['admin', 'hr', 'manager'] },
-  { to: '/departments', label: '部门管理', icon: Building2, roles: ['admin', 'hr', 'manager'] },
-  { to: '/positions', label: '岗位管理', icon: FolderKanban, roles: ['admin', 'hr'] },
-  { to: '/attendance', label: '考勤管理', icon: Clock, roles: ['admin', 'hr', 'manager', 'employee'] },
-  { to: '/leaves', label: '请假审批', icon: ClipboardList, roles: ['admin', 'hr', 'manager', 'employee'] },
-  { to: '/approvals', label: '我的审批', icon: Inbox, roles: ['admin', 'hr', 'manager'], badge: 'pending_approvals' },
-  { to: '/salaries', label: '薪酬管理', icon: Wallet, roles: ['admin', 'hr', 'employee'] },
+  { to: '/employees', label: '员工管理', icon: Users, roles: ['hr', 'manager'] },
+  { to: '/departments', label: '部门管理', icon: Building2, roles: ['hr', 'manager'] },
+  { to: '/positions', label: '岗位管理', icon: FolderKanban, roles: ['hr'] },
+  { to: '/attendance', label: '考勤管理', icon: Clock, roles: ['hr', 'manager', 'employee'] },
+  { to: '/leaves', label: '请假审批', icon: ClipboardList, roles: ['hr', 'manager', 'employee'] },
+  { to: '/approvals', label: '我的审批', icon: Inbox, roles: ['hr', 'manager'], badge: 'pending_approvals' },
+  { to: '/salaries', label: '薪酬管理', icon: Wallet, roles: ['hr', 'employee'] },
   { to: '/announcements', label: '公告管理', icon: Megaphone, roles: ['admin', 'hr', 'manager', 'employee'], badge: 'unread_announcements' },
-  { to: '/performance', label: '绩效管理', icon: Target, roles: ['admin', 'hr', 'manager', 'employee'] },
-  { to: '/recruitment', label: '招聘管理', icon: Briefcase, roles: ['admin', 'hr'] },
-  { to: '/profile', label: '个人中心', icon: UserCircle, roles: ['admin', 'hr', 'manager', 'employee'] },
+  { to: '/performance', label: '绩效管理', icon: Target, roles: ['hr', 'manager', 'employee'] },
+  { to: '/recruitment', label: '招聘管理', icon: Briefcase, roles: ['hr'] },
+  { to: '/profile', label: '个人中心', icon: UserCircle, roles: ['hr', 'manager', 'employee'] },
 ]
 
 // 系统管理分组菜单：用户管理 / 角色管理 / 审计日志（仅 admin，hr 为业务管理员不涉系统配置）

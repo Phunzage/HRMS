@@ -9,8 +9,6 @@ import {
   type UserItem,
   type RoleOption,
 } from '../api/user'
-import { fetchDepartments } from '../api/employee'
-import { flattenDepartments, deptOptionLabel, type DeptOption } from '../utils/tree'
 import type { PageResult } from '../api/client'
 import { useAuthStore } from '../store/auth'
 import { toast } from '../store/toast'
@@ -21,14 +19,13 @@ import Pagination from '../components/Pagination'
 
 const PAGE_SIZE = 10
 
-// 用户表单数据（role_id / dept_scope_id 用字符串便于下拉受控，提交时转数字）
+// 用户表单数据（role_id 用字符串便于下拉受控，提交时转数字）
 interface UserForm {
   username: string
   password: string
   full_name: string
   email: string
   role_id: string
-  dept_scope_id: string
 }
 
 const emptyForm: UserForm = {
@@ -37,7 +34,6 @@ const emptyForm: UserForm = {
   full_name: '',
   email: '',
   role_id: '',
-  dept_scope_id: '',
 }
 
 // 状态徽章：1 启用（绿）/ 0 禁用（灰）
@@ -68,8 +64,6 @@ export default function UsersPage() {
 
   // 角色下拉
   const [roles, setRoles] = useState<RoleOption[]>([])
-  // 负责部门下拉（部门树扁平化）
-  const [deptOptions, setDeptOptions] = useState<DeptOption[]>([])
 
   // 新增/编辑弹窗
   const [modalOpen, setModalOpen] = useState(false)
@@ -115,13 +109,6 @@ export default function UsersPage() {
       .catch(() => setRoles([]))
   }, [])
 
-  // 负责部门下拉数据（部门树扁平化，供 hr 数据范围选择）；加载失败时静默降级为空数组
-  useEffect(() => {
-    fetchDepartments()
-      .then((tree) => setDeptOptions(flattenDepartments(tree)))
-      .catch(() => setDeptOptions([]))
-  }, [])
-
   const reload = () => setReloadKey((k) => k + 1)
 
   const openCreate = () => {
@@ -138,13 +125,9 @@ export default function UsersPage() {
       full_name: user.full_name,
       email: user.email,
       role_id: String(user.role_id),
-      dept_scope_id: user.dept_scope_id ? String(user.dept_scope_id) : '',
     })
     setModalOpen(true)
   }
-
-  // 当前表单所选角色的 code（用于判断是否显示「负责部门」）
-  const selectedRoleCode = roles.find((r) => r.id === Number(form.role_id))?.code
 
   const handleSave = async () => {
     if (!form.username.trim()) {
@@ -162,16 +145,11 @@ export default function UsersPage() {
     setSaving(true)
     try {
       if (editing) {
-        const payload: { full_name: string; email: string; role_id: number; dept_scope_id?: number | null } = {
+        await updateUser(editing.id, {
           full_name: form.full_name,
           email: form.email,
           role_id: Number(form.role_id),
-        }
-        // 所选角色为 hr 时提交数据范围部门（可清空）
-        if (selectedRoleCode === 'hr') {
-          payload.dept_scope_id = form.dept_scope_id ? Number(form.dept_scope_id) : null
-        }
-        await updateUser(editing.id, payload)
+        })
         toast.success('用户已更新')
       } else {
         await createUser({
@@ -313,7 +291,6 @@ export default function UsersPage() {
                     <th>姓名</th>
                     <th>邮箱</th>
                     <th>角色</th>
-                    <th>负责部门</th>
                     <th>状态</th>
                     <th>创建时间</th>
                     {canManage && <th className="text-right">操作</th>}
@@ -328,7 +305,6 @@ export default function UsersPage() {
                       <td>
                         <span className="badge badge-sm badge-primary">{user.role_name || '-'}</span>
                       </td>
-                      <td className="text-base-content/60">{user.dept_scope_name || '-'}</td>
                       <td>
                         <StatusCell status={user.status} />
                       </td>
@@ -356,7 +332,7 @@ export default function UsersPage() {
                   ))}
                   {!data?.list.length && (
                     <tr>
-                      <td colSpan={canManage ? 8 : 7} className="py-8 text-center text-base-content/50">
+                      <td colSpan={canManage ? 7 : 6} className="py-8 text-center text-base-content/50">
                         暂无用户
                       </td>
                     </tr>
@@ -445,22 +421,6 @@ export default function UsersPage() {
               ))}
             </select>
           </Field>
-          {editing && selectedRoleCode === 'hr' && (
-            <Field label="负责部门">
-              <select
-                className="select select-bordered select-sm"
-                value={form.dept_scope_id}
-                onChange={(e) => setForm({ ...form, dept_scope_id: e.target.value })}
-              >
-                <option value="">全部部门（不限）</option>
-                {deptOptions.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {deptOptionLabel(d)}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          )}
         </div>
       </Modal>
 
