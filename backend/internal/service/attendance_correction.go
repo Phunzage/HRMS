@@ -115,7 +115,16 @@ func (s *AttendanceCorrectionService) Create(userID uint, req SubmitCorrectionRe
 }
 
 // List 补卡申请分页列表，按角色范围过滤（admin/hr 全部；manager 本部门+待自己审批；employee 仅自己）
+// employee 角色仅本人可见：无视传入的 employee_id 过滤，强制按当前用户关联的员工档案过滤；未关联档案返回空列表
 func (s *AttendanceCorrectionService) List(roleCode string, userID uint, status string, employeeID uint, page, pageSize int) ([]repository.CorrectionItem, int64, error) {
+	if roleCode == "employee" {
+		empID, err := s.requireEmployee(userID)
+		if err != nil {
+			// 员工未关联档案：仅本人可见无法满足，返回空列表
+			return []repository.CorrectionItem{}, 0, nil
+		}
+		employeeID = empID
+	}
 	scope, err := s.buildScope(roleCode, userID)
 	if err != nil {
 		return nil, 0, err

@@ -23,14 +23,19 @@ func NewApprovalAdmin(db *gorm.DB) *ApprovalAdmin {
 	return &ApprovalAdmin{db: db}
 }
 
-// List 查询所有审批流程及步骤（GET /approval-flows）
+// List 查询所有审批流程及步骤 + 审批权限点角色列表（GET /approval-flows）
 func (h *ApprovalAdmin) List(c *gin.Context) {
 	list, err := service.ListApprovalFlows(h.db)
 	if err != nil {
 		response.Error(c, http.StatusInternalServerError, 500, "查询审批流程失败")
 		return
 	}
-	response.OK(c, gin.H{"list": list})
+	perms, err := service.ListApprovalPermissions(h.db)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 500, "查询审批权限点失败")
+		return
+	}
+	response.OK(c, gin.H{"list": list, "approval_permissions": perms})
 }
 
 // Update 更新指定编码的审批流程（PUT /approval-flows/:code）
@@ -60,7 +65,8 @@ func (h *ApprovalAdmin) handleError(c *gin.Context, err error) {
 		errors.Is(err, service.ErrApprovalFlowStepOrder),
 		errors.Is(err, service.ErrApprovalFlowTypeInvalid),
 		errors.Is(err, service.ErrApprovalFlowPosRefBad),
-		errors.Is(err, service.ErrApprovalFlowRefConflict):
+		errors.Is(err, service.ErrApprovalFlowRefConflict),
+		errors.Is(err, service.ErrApprovalFlowPermBad):
 		response.Error(c, http.StatusBadRequest, 400, err.Error())
 	default:
 		response.Error(c, http.StatusInternalServerError, 500, "更新审批流程失败")

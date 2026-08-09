@@ -67,11 +67,20 @@ func NewAttendanceService(db *gorm.DB, attRepo *repository.AttendanceRepo, empRe
 }
 
 // List 考勤分页列表，支持 employee_id / work_date / month / status 过滤，按角色数据范围过滤（hr 仅负责部门及子部门）
+// employee 角色仅本人可见：无视传入的 employee_id 过滤，强制按当前用户关联的员工档案过滤；未关联档案返回空列表
 func (s *AttendanceService) List(roleCode string, userID uint, employeeID uint, workDate, month, status string, page, pageSize int) ([]repository.AttendanceItem, int64, error) {
 	if workDate != "" {
 		if _, err := time.Parse("2006-01-02", workDate); err != nil {
 			return nil, 0, ErrAttDateBad
 		}
+	}
+	if roleCode == "employee" {
+		empID, err := s.requireEmployeeID(userID)
+		if err != nil {
+			// 员工未关联档案：仅本人可见无法满足，返回空列表
+			return []repository.AttendanceItem{}, 0, nil
+		}
+		employeeID = empID
 	}
 	scopeDeptIDs, err := ResolveScope(s.db, userID, roleCode)
 	if err != nil {

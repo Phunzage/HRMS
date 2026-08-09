@@ -14,9 +14,10 @@ var (
 	ErrApprovalFlowCodeInvalid = errors.New("审批流程编码无效")
 	ErrApprovalFlowStepCount   = errors.New("审批步骤数须为 1~5 级")
 	ErrApprovalFlowStepOrder   = errors.New("审批步骤顺序必须从 1 开始且连续")
-	ErrApprovalFlowTypeInvalid = errors.New("审批步骤类型不合法（manager/hr/position）")
+	ErrApprovalFlowTypeInvalid = errors.New("审批步骤类型不合法（manager/permission/hr/position）")
 	ErrApprovalFlowPosRefBad   = errors.New("指定岗位审批必须填写有效的岗位 ID")
 	ErrApprovalFlowRefConflict = errors.New("manager/hr 步骤不得填写岗位引用")
+	ErrApprovalFlowPermBad     = errors.New("指定权限审批必须填写有效的审批权限点，且 manager/hr/position 步骤不得填写权限点")
 )
 
 // validApprovalFlowCodes 可配置的流程编码（与业务申请 bizType 对应）
@@ -25,19 +26,27 @@ var validApprovalFlowCodes = map[string]bool{
 	"attendance_correction": true,
 }
 
-// validApproverTypes 审批步骤合法审批人类型
+// validApproverTypes 审批步骤合法审批人类型（hr/position 为兼容旧配置保留，新配置建议 manager/permission）
 var validApproverTypes = map[string]bool{
-	"manager":  true,
-	"hr":       true,
-	"position": true,
+	"manager":    true,
+	"permission": true,
+	"hr":         true,
+	"position":   true,
+}
+
+// validApprovalPermissions 审批权限点合法取值（permission 类型步骤使用）
+var validApprovalPermissions = map[string]bool{
+	"leave:approve":                 true,
+	"attendance_correction:approve": true,
 }
 
 // ApprovalFlowStepInput 流程步骤配置输入
 type ApprovalFlowStepInput struct {
-	StepOrder    int    `json:"step_order"`
-	ApproverType string `json:"approver_type"`
-	ApproverRef  uint   `json:"approver_ref"`
-	Name         string `json:"name"`
+	StepOrder          int    `json:"step_order"`
+	ApproverType       string `json:"approver_type"`
+	ApproverRef        uint   `json:"approver_ref"`
+	ApproverPermission string `json:"approver_permission"` // 审批权限点 code，approver_type=permission 时必填
+	Name               string `json:"name"`
 }
 
 // UpdateApprovalFlowRequest 更新审批流程请求体
@@ -98,11 +107,12 @@ func UpdateApprovalFlow(db *gorm.DB, code string, req UpdateApprovalFlowRequest)
 		}
 		for _, st := range req.Steps {
 			step := models.ApprovalStep{
-				FlowID:       flow.ID,
-				StepOrder:    st.StepOrder,
-				ApproverType: st.ApproverType,
-				ApproverRef:  st.ApproverRef,
-				Name:         st.Name,
+				FlowID:             flow.ID,
+				StepOrder:          st.StepOrder,
+				ApproverType:       st.ApproverType,
+				ApproverRef:        st.ApproverRef,
+				ApproverPermission: st.ApproverPermission,
+				Name:               st.Name,
 			}
 			if err := tx.Create(&step).Error; err != nil {
 				return fmt.Errorf("创建审批流程步骤失败: %w", err)
@@ -114,6 +124,55 @@ func UpdateApprovalFlow(db *gorm.DB, code string, req UpdateApprovalFlowRequest)
 		return nil, err
 	}
 	return getApprovalFlowDetail(db, flow.ID)
+}
+
+// ApprovalPermissionRole 拥有审批权限点的角色
+type ApprovalPermissionRole struct {
+	ID   uint   `json:"id"`
+	Name string `json:"name"`
+}
+
+// ApprovalPermissionInfo 审批权限点及拥有它的角色列表（流程配置页权限池下拉展示）
+type ApprovalPermissionInfo struct {
+	Code  string                   `json:"code"`
+	Name  string                   `json:"name"`
+	Roles []ApprovalPermissionRole `json:"roles"`
+}
+
+// ListApprovalPermissions 查询审批权限点及拥有它的角色列表（GET /approval-flows 顶层 approval_permissions 字段）
+// 角色列表 = 拥有该权限点的所有角色（role_permissions JOIN roles），供前端显示哪些角色可审批
+func ListApprovalPermissions(db *gorm.DB) ([]ApprovalPermissionInfo, error) {
+	names := map[string]string{
+		"leave:approve":                 "请假审批",
+		"attendance_correction:approve": "补卡审批",
+	}
+	infos := make([]ApprovalPermissionInfo, 0, len(validApprovalPermissions))
+	// 固定顺序返回，保证前端展示稳定
+	for _, code := range []string{"leave:approve", "attendance_correction:approve"} {
+		var perm models.Permission
+		if err := db.Where("code = ?", code).First(&perm).Error; err != nil {
+			// 权限点未 seed：兜底展示空角色列表，不阻断流程列表
+			infos = append(infos, ApprovalPermissionInfo{Code: code, Name: names[code], Roles: []ApprovalPermissionRole{}})
+			continue
+		}
+		var roles []struct {
+			ID   uint
+			Name string
+		}
+		if err := db.Table("roles").
+			Joins("JOIN role_permissions ON role_permissions.role_id = roles.id").
+			Where("role_permissions.permission_id = ?", perm.ID).
+			Order("roles.id ASC").
+			Scan(&roles).Error; err != nil {
+			return nil, err
+		}
+		permRoles := make([]ApprovalPermissionRole, 0, len(roles))
+		for _, r := range roles {
+			permRoles = append(permRoles, ApprovalPermissionRole{ID: r.ID, Name: r.Name})
+		}
+		infos = append(infos, ApprovalPermissionInfo{Code: code, Name: perm.Name, Roles: permRoles})
+	}
+	return infos, nil
 }
 
 // getApprovalFlowDetail 查询单个流程详情（含步骤）
@@ -130,8 +189,9 @@ func getApprovalFlowDetail(db *gorm.DB, flowID uint) (*ApprovalFlowDetail, error
 }
 
 // validateApprovalFlowSteps 校验步骤配置：
-// 1~5 级；step_order 从 1 开始且连续；approver_type ∈ {manager, hr, position}；
-// position 时 approver_ref>0 且岗位存在；hr/manager 时 approver_ref 必须为 0
+// 1~5 级；step_order 从 1 开始且连续；approver_type ∈ {manager, permission, hr, position}（hr/position 兼容旧配置）；
+// permission 时 approver_permission 必须为合法审批权限点；position 时 approver_ref>0 且岗位存在；
+// manager/hr/position 时 approver_permission 必须为空，manager/hr 时 approver_ref 必须为 0
 func validateApprovalFlowSteps(db *gorm.DB, req UpdateApprovalFlowRequest) error {
 	n := len(req.Steps)
 	if n < 1 || n > 5 {
@@ -145,6 +205,13 @@ func validateApprovalFlowSteps(db *gorm.DB, req UpdateApprovalFlowRequest) error
 			return ErrApprovalFlowTypeInvalid
 		}
 		switch st.ApproverType {
+		case "permission":
+			if !validApprovalPermissions[st.ApproverPermission] {
+				return ErrApprovalFlowPermBad
+			}
+			if st.ApproverRef != 0 {
+				return ErrApprovalFlowRefConflict
+			}
 		case "position":
 			if st.ApproverRef == 0 {
 				return ErrApprovalFlowPosRefBad
@@ -153,9 +220,15 @@ func validateApprovalFlowSteps(db *gorm.DB, req UpdateApprovalFlowRequest) error
 			if err := db.First(&pos, st.ApproverRef).Error; err != nil {
 				return ErrApprovalFlowPosRefBad
 			}
+			if st.ApproverPermission != "" {
+				return ErrApprovalFlowPermBad
+			}
 		default:
 			if st.ApproverRef != 0 {
 				return ErrApprovalFlowRefConflict
+			}
+			if st.ApproverPermission != "" {
+				return ErrApprovalFlowPermBad
 			}
 		}
 	}

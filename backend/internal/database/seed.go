@@ -141,6 +141,8 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "绩效编辑", Code: "performance:write", Module: "performance"},
 		{Name: "审批流程查看", Code: "approval_flow:read", Module: "approval"},
 		{Name: "审批流程配置", Code: "approval_flow:write", Module: "approval"},
+		{Name: "请假审批", Code: "leave:approve", Module: "approval"},
+		{Name: "补卡审批", Code: "attendance_correction:approve", Module: "approval"},
 	}
 	for _, p := range permissions {
 		var existing models.Permission
@@ -172,7 +174,8 @@ func seedRolePermissions(db *gorm.DB) error {
 			"approval_flow:read", "approval_flow:write",
 			"position:read",
 		},
-		// hr = 业务管理员：全公司口径，负责人事业务读写（含公告），不再有用户/角色/审计管理权限
+		// hr = 业务管理员：全公司口径，负责人事业务读写（含公告），不再有用户/角色/审计管理权限；
+		// 审批终审职能改由权限控制（leave:approve + attendance_correction:approve），不再是角色写死
 		"hr": {
 			"employee:read", "employee:write",
 			"department:read", "department:write",
@@ -184,7 +187,9 @@ func seedRolePermissions(db *gorm.DB) error {
 			"performance:read", "performance:write",
 			"announcement:read", "announcement:write",
 			"dashboard:read",
+			"leave:approve", "attendance_correction:approve",
 		},
+		// manager：部门经理继续一审请假（leave:approve），机制改为权限控制
 		"manager": {
 			"employee:read",
 			// position:read：经理查看本部门岗位、员工管理页岗位筛选需要（工资/招聘仍为 hr/admin 专属）
@@ -194,6 +199,7 @@ func seedRolePermissions(db *gorm.DB) error {
 			"department:read",
 			"announcement:read",
 			"performance:read", "performance:write",
+			"leave:approve",
 		},
 		// employee 角色无 employee:read：普通员工的员工档案只能通过 GET /employees/me 访问本人
 		// attendance:write 用于员工自助打卡（check-in/check-out）
