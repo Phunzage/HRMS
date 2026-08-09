@@ -41,6 +41,8 @@
 | M28 | 审批流程配置页(admin前端) | prompts/batch29_approval_flow_page.md | ✅ 完成 | 次日 16:25 |
 | M29 | 审批改权限制+考勤员工仅本人(后端) | prompts/batch30_approval_permission.md | ✅ 完成 | 次日 17:35 |
 | M30 | 角色审批权限勾选+流程页联动(前端) | prompts/batch31_permission_frontend.md | ✅ 完成 | 次日 17:50 |
+| M31 | 审批链修复(递归经理+角色池) | prompts/batch32_approval_fix.md | ✅ 完成 | 次日 19:20 |
+| M32 | UI权限与权限点同步(usePerm) | prompts/batch33_perm_frontend.md | ✅ 完成 | 次日 19:35 |
 
 ## 已确认的环境
 
@@ -119,6 +121,15 @@
 - **考勤员工仅本人可见**：attendance:read/write 权限点保留（员工可打卡），但 employee 角色的考勤/补卡列表接口**强制按本人过滤**（传 employee_id 参数也被忽略），hr/manager/admin 维持全量/部门视图
 - **验证**：批次 30 后端 E2E（permission 池全流程、无权限 403、通知广播）+ 4 新测试；批次 31 前端实测（角色弹窗审批分组勾选、流程页「按权限·请假审批」+「人事、经理 可审批」、liuyang 仅本人 11 条/传参仍本人）；架构师浏览器复核全部通过
 - **效果**：审批配置彻底解耦角色——「谁当第几级」由 admin 自由勾选权限决定，适应任意公司职能划分
+
+## 八轮增强完成情况（审批链修复 + UI 权限同步）
+
+用户深度测试发现 5 个问题，全部修复：
+1. **部门经理递归解析**：张佳（算法组，直属无经理）提交病假，刘尧（研发部经理）收不到——`ResolveManagerUserID` 原来只查直属部门，改为**递归向上**（算法组→研发部→刘尧）；实测请假39 任务 approver_id=liu(20) ✅
+2. **hr 取消权限仍收到审批**：manager 步骤无经理时兜底 `FindHRUser` **硬指派** hr（与权限无关）——改为返回未指派任务（approver_id=NULL），归属按 BizType 推断审批权限点（leave:approve），hr 无权限即不可见/不可审/无通知 ✅
+3. **通知链路检查**：StartApproval/ApproveTask 推进按新逻辑（经理指派→仅经理；未指派→权限池广播；role 池→角色广播）；终审/驳回→申请人 leave_result；禁用账号跳过通知 ✅
+4. **审批流程页改角色制**：步骤类型改为 manager（部门经理）+ role（**指定角色**，如人事专员/副总经理），ApprovalStep/Task 增加 approver_role_id；优先级=步骤顺序；默认请假=经理→角色(人事) ✅
+5. **UI 与权限点同步**：/auth/me 返回 permissions 列表 + 前端 usePerm hook（has/hasAny），全部页面 canManage 从 `role==='hr'` 硬编码改为权限点判断（Announcements 用 announcement:write 等 11 处）；manager 勾 announcement:write 后「发布公告」按钮即出现 ✅
 
 ## 二轮增强完成情况
 
