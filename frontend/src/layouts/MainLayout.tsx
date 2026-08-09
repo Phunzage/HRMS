@@ -83,6 +83,13 @@ const NOTIF_TYPE_BADGE: Record<string, { label: string; badge: string }> = {
   system: { label: '系统', badge: 'badge-ghost' },
 }
 
+// NavLink 高亮样式：active 时使用 daisyUI menu-active 语义类 + 显式 Tailwind 高亮
+// （daisyUI 5 的 menu 默认 active 背景在某些主题下不渲染，显式指定保证可见）
+const navLinkClass = ({ isActive }: { isActive: boolean }) =>
+  isActive
+    ? 'active bg-primary/15 font-semibold text-primary shadow-sm'
+    : 'text-base-content/80 hover:bg-base-200 hover:text-base-content'
+
 export default function MainLayout() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
@@ -196,7 +203,7 @@ export default function MainLayout() {
               <NavLink
                 to={item.to}
                 end={item.end}
-                className={({ isActive }) => (isActive ? 'active' : '')}
+                className={navLinkClass}
               >
                 <item.icon className="h-5 w-5" />
                 {item.label}
@@ -213,7 +220,7 @@ export default function MainLayout() {
                 <li key={item.to}>
                   <NavLink
                     to={item.to}
-                    className={({ isActive }) => (isActive ? 'active' : '')}
+                    className={navLinkClass}
                   >
                     <item.icon className="h-5 w-5" />
                     {item.label}
