@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">HRMS人力资源管理系统</string>
+    <string name="title_activity_main">HRMS人力资源管理系统</string>
+    <string name="package_name">com.hrms.app</string>
+    <string name="custom_url_scheme">com.hrms.app</string>
+</resources>

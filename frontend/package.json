@@ -11,6 +11,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@capacitor/android": "^8.5.0",
+    "@capacitor/cli": "^8.5.0",
+    "@capacitor/core": "^8.5.0",
     "axios": "^1.19.0",
     "daisyui": "^5.7.15",
     "lucide-react": "^1.28.0",
