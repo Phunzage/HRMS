@@ -110,6 +110,7 @@ func StartApproval(tx *gorm.DB, bizType string, bizID uint, applicantUserID uint
 		StepOrder:    steps[0].StepOrder,
 		ApproverType: steps[0].ApproverType,
 		ApproverID:   approverID,
+		ApproverRef:  steps[0].ApproverRef,
 		Status:       "pending",
 	}
 	if err := tx.Create(task).Error; err != nil {
@@ -166,6 +167,7 @@ func ApproveTask(tx *gorm.DB, taskID uint, approverUserID uint, comment string) 
 			StepOrder:    nextStep.StepOrder,
 			ApproverType: nextStep.ApproverType,
 			ApproverID:   approverID,
+			ApproverRef:  nextStep.ApproverRef,
 			Status:       "pending",
 		}
 		if err := tx.Create(newTask).Error; err != nil {
@@ -299,6 +301,43 @@ func FindAllHRUserIDs(db *gorm.DB) ([]uint, error) {
 	return ids, nil
 }
 
+// FindUsersByPositionID 查询指定岗位所有在职员工的系统账号用户 ID（position 池广播通知用）；
+// JOIN employees ON users.employee_id=employees.id，须员工在职（status=1）且账号启用（users.status=1）；无则返回空切片
+func FindUsersByPositionID(db *gorm.DB, positionID uint) ([]uint, error) {
+	ids := make([]uint, 0)
+	if positionID == 0 {
+		return ids, nil
+	}
+	if err := db.Model(&models.User{}).
+		Joins("JOIN employees ON employees.id = users.employee_id").
+		Where("employees.position_id = ? AND employees.status = 1 AND users.status = 1", positionID).
+		Order("users.id ASC").
+		Pluck("users.id", &ids).Error; err != nil {
+		return nil, err
+	}
+	return ids, nil
+}
+
+// getUserPositionID 查询当前用户关联员工档案的岗位 ID（position 池任务归属匹配用）；
+// 用户无员工档案或非在职返回 0
+func getUserPositionID(db *gorm.DB, userID uint) (uint, error) {
+	empID, err := repository.NewEmployeeRepo(db).FindEmployeeIDByUserID(userID)
+	if err != nil {
+		return 0, err
+	}
+	if empID == nil {
+		return 0, nil
+	}
+	var emp models.Employee
+	if err := db.Select("position_id, status").First(&emp, *empID).Error; err != nil {
+		return 0, err
+	}
+	if emp.Status != 1 {
+		return 0, nil
+	}
+	return emp.PositionID, nil
+}
+
 // ListMyTasks 我作为审批人的任务列表（pending/历史），JOIN 业务表带出申请人、摘要、跳转链接
 // status：空=全部；pending=待审批；approved/rejected=对应历史
 func ListMyTasks(db *gorm.DB, userID uint, status string) ([]TaskItem, error) {
@@ -307,6 +346,10 @@ func ListMyTasks(db *gorm.DB, userID uint, status string) ([]TaskItem, error) {
 		return nil, err
 	}
 	isHR := roleCode == "hr"
+	positionID, err := getUserPositionID(db, userID)
+	if err != nil {
+		return nil, err
+	}
 
 	q := db.Table("approval_tasks").
 		Select(`approval_tasks.*, ai.biz_type, ai.biz_id, ai.status AS instance_status,
@@ -321,11 +364,13 @@ func ListMyTasks(db *gorm.DB, userID uint, status string) ([]TaskItem, error) {
 		Joins("LEFT JOIN employees e ON e.id = COALESCE(lr.employee_id, ac.employee_id)").
 		Joins("LEFT JOIN departments d ON d.id = e.department_id")
 
+	// 归属口径（与 checkTaskApprover / CountMyPendingTasks 一致）：
+	// approver_id 指派匹配；HR 池任务（approver_type=hr 且未指派）仅 hr 可见；
+	// position 池任务（approver_type=position 且未指派）仅该岗位在职员工可见；admin 不出现任何业务审批任务
 	if isHR {
-		// hr：自己名下的任务 + HR 池任务（approver_type=hr 且未指派）；admin 待办不出现业务审批
-		q = q.Where("(approval_tasks.approver_id = ? OR (approval_tasks.approver_type = 'hr' AND approval_tasks.approver_id IS NULL))", userID)
+		q = q.Where("(approval_tasks.approver_id = ? OR (approval_tasks.approver_type = 'hr' AND approval_tasks.approver_id IS NULL) OR (approval_tasks.approver_type = 'position' AND approval_tasks.approver_ref = ?))", userID, positionID)
 	} else {
-		q = q.Where("approval_tasks.approver_id = ?", userID)
+		q = q.Where("(approval_tasks.approver_id = ? OR (approval_tasks.approver_type = 'position' AND approval_tasks.approver_ref = ?))", userID, positionID)
 	}
 
 	switch status {
@@ -351,21 +396,26 @@ func ListMyTasks(db *gorm.DB, userID uint, status string) ([]TaskItem, error) {
 }
 
 // CountMyPendingTasks 当前用户待审批任务数（导航栏角标用）：
-// 与 ListMyTasks 的归属口径一致——ApproverID 匹配，或 hr 可认领的 HR 池任务（approver_type=hr 且未指派）；admin 不计入业务审批
+// 与 ListMyTasks / checkTaskApprover 的归属口径一致——ApproverID 匹配，或 hr 可认领的 HR 池任务（approver_type=hr 且未指派），
+// 或 position 池任务（approver_type=position 且 approver_ref=当前用户岗位）；admin 不计入业务审批
 func CountMyPendingTasks(db *gorm.DB, userID uint) (int64, error) {
 	roleCode, err := getUserRoleCode(db, userID)
 	if err != nil {
 		return 0, err
 	}
 	isHR := roleCode == "hr"
+	positionID, err := getUserPositionID(db, userID)
+	if err != nil {
+		return 0, err
+	}
 
 	q := db.Model(&models.ApprovalTask{}).
 		Joins("JOIN approval_instances ai ON ai.id = approval_tasks.instance_id").
 		Where("approval_tasks.status = ? AND ai.status = ?", "pending", "pending")
 	if isHR {
-		q = q.Where("(approval_tasks.approver_id = ? OR (approval_tasks.approver_type = 'hr' AND approval_tasks.approver_id IS NULL))", userID)
+		q = q.Where("(approval_tasks.approver_id = ? OR (approval_tasks.approver_type = 'hr' AND approval_tasks.approver_id IS NULL) OR (approval_tasks.approver_type = 'position' AND approval_tasks.approver_ref = ?))", userID, positionID)
 	} else {
-		q = q.Where("approval_tasks.approver_id = ?", userID)
+		q = q.Where("(approval_tasks.approver_id = ? OR (approval_tasks.approver_type = 'position' AND approval_tasks.approver_ref = ?))", userID, positionID)
 	}
 	var n int64
 	err = q.Count(&n).Error
@@ -509,18 +559,32 @@ func loadPendingInstance(tx *gorm.DB, instanceID uint) (*models.ApprovalInstance
 }
 
 // checkTaskApprover 审批权限校验：ApproverID 匹配优先；
-// HR 池任务（approver_type=hr 且 ApproverID 为空）仅允许 hr 角色审批，admin 不再放行（admin 专注系统管理）
+// HR 池任务（approver_type=hr 且 ApproverID 为空）仅允许 hr 角色审批，admin 不再放行（admin 专注系统管理）；
+// position 池任务（approver_type=position 且 ApproverID 为空）仅允许该岗位的在职员工用户审批
 func checkTaskApprover(tx *gorm.DB, task *models.ApprovalTask, approverUserID uint) error {
 	if task.ApproverID != nil && *task.ApproverID == approverUserID {
 		return nil
 	}
-	if task.ApproverType == "hr" && task.ApproverID == nil {
-		roleCode, err := getUserRoleCode(tx, approverUserID)
-		if err != nil {
-			return err
+	switch task.ApproverType {
+	case "hr":
+		if task.ApproverID == nil {
+			roleCode, err := getUserRoleCode(tx, approverUserID)
+			if err != nil {
+				return err
+			}
+			if roleCode == "hr" {
+				return nil
+			}
 		}
-		if roleCode == "hr" {
-			return nil
+	case "position":
+		if task.ApproverID == nil {
+			positionID, err := getUserPositionID(tx, approverUserID)
+			if err != nil {
+				return err
+			}
+			if positionID != 0 && positionID == task.ApproverRef {
+				return nil
+			}
 		}
 	}
 	return ErrApprovalNotAllowed
@@ -540,33 +604,38 @@ func getUserRoleCode(db *gorm.DB, userID uint) (string, error) {
 }
 
 // resolveStepApproverUserID 解析某步骤的审批人用户 ID
-// manager：申请人的部门经理（无则兜底任意 hr）；hr：留空由任一 hr 审批（admin 不参与业务审批）
+// hr / position：池步骤留空（approver_id=NULL），由池内任一审批人认领（HR 池=hr 角色；岗位池=ApproverRef 指定岗位的在职员工）
+// manager：申请人的部门经理（无则兜底任意 hr；admin 不参与业务审批）
 func resolveStepApproverUserID(tx *gorm.DB, inst *models.ApprovalInstance, step *models.ApprovalStep) (*uint, error) {
-	if step.ApproverType == "hr" {
+	switch step.ApproverType {
+	case "hr", "position":
 		return nil, nil
-	}
-	// manager：申请人的部门经理
-	empID, err := repository.NewEmployeeRepo(tx).FindEmployeeIDByUserID(inst.CreatedBy)
-	if err != nil {
-		return nil, err
-	}
-	if empID == nil {
+	case "manager":
+		// 申请人的部门经理
+		empID, err := repository.NewEmployeeRepo(tx).FindEmployeeIDByUserID(inst.CreatedBy)
+		if err != nil {
+			return nil, err
+		}
+		if empID == nil {
+			return FindHRUser(tx)
+		}
+		mgrUserID, err := ResolveManagerUserID(tx, *empID)
+		if err != nil {
+			return nil, err
+		}
+		if mgrUserID != nil {
+			return mgrUserID, nil
+		}
+		// 无部门经理（或无账号）：兜底给任意 hr，防止流程卡死
 		return FindHRUser(tx)
 	}
-	mgrUserID, err := ResolveManagerUserID(tx, *empID)
-	if err != nil {
-		return nil, err
-	}
-	if mgrUserID != nil {
-		return mgrUserID, nil
-	}
-	// 无部门经理（或无账号）：兜底给任意 hr，防止流程卡死
-	return FindHRUser(tx)
+	// 未知类型按 manager 兜底，避免流程中断
+	return nil, nil
 }
 
 // approvalNotify 向审批人发送待审批通知：
 // 有具体审批人 → 发给该用户；HR 池步骤（approverUserID 为 nil 且 ApproverType=hr）→ 广播给所有启用 HR 用户（无 HR 回退 admin）；
-// 其他无审批人情况保持跳过
+// position 池步骤（approverUserID 为 nil 且 ApproverType=position）→ 广播给该岗位所有在职员工的用户；其他无审批人情况保持跳过
 func approvalNotify(tx *gorm.DB, inst *models.ApprovalInstance, approverUserID *uint, step *models.ApprovalStep) {
 	var ntype, title, link string
 	switch inst.BizType {
@@ -585,11 +654,25 @@ func approvalNotify(tx *gorm.DB, inst *models.ApprovalInstance, approverUserID *
 		_ = notif.Send(*approverUserID, ntype, title, content, link)
 		return
 	}
-	// HR 池步骤：广播通知所有 HR（无 HR 回退 admin），保证 hr 能收到终审通知
-	if step != nil && step.ApproverType == "hr" {
+	if step == nil {
+		return
+	}
+	switch step.ApproverType {
+	case "hr":
+		// HR 池步骤：广播通知所有 HR（无 HR 回退 admin），保证 hr 能收到终审通知
 		ids, err := FindAllHRUserIDs(tx)
 		if err != nil {
 			slog.Warn("查询 HR 用户发送审批通知失败", "error", err, "instance_id", inst.ID)
+			return
+		}
+		for _, id := range ids {
+			_ = notif.Send(id, ntype, title, content, link)
+		}
+	case "position":
+		// position 池步骤：广播通知该岗位所有在职员工的用户
+		ids, err := FindUsersByPositionID(tx, step.ApproverRef)
+		if err != nil {
+			slog.Warn("查询岗位用户发送审批通知失败", "error", err, "instance_id", inst.ID, "position_id", step.ApproverRef)
 			return
 		}
 		for _, id := range ids {

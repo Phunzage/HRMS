@@ -139,6 +139,8 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "公告编辑", Code: "announcement:write", Module: "announcement"},
 		{Name: "绩效查看", Code: "performance:read", Module: "performance"},
 		{Name: "绩效编辑", Code: "performance:write", Module: "performance"},
+		{Name: "审批流程查看", Code: "approval_flow:read", Module: "approval"},
+		{Name: "审批流程配置", Code: "approval_flow:write", Module: "approval"},
 	}
 	for _, p := range permissions {
 		var existing models.Permission
@@ -159,13 +161,14 @@ func seedPermissions(db *gorm.DB) error {
 // seedRolePermissions 写入角色-权限关联（admin 不再直接放行，统一查 role_permissions，保证业务只读生效）
 func seedRolePermissions(db *gorm.DB) error {
 	rolePerms := map[string][]string{
-		// admin = 系统管理员：专注系统管理（用户/角色/审计），仅保留公告与仪表盘监督，不含任何业务权限（连只读也无）
+		// admin = 系统管理员：专注系统管理（用户/角色/审计）+ 审批流程配置，仅保留公告与仪表盘监督，不含任何业务数据权限（连只读也无）
 		"admin": {
 			"user:read", "user:write",
 			"role:read", "role:write",
 			"audit:read",
 			"dashboard:read",
 			"announcement:read", "announcement:write",
+			"approval_flow:read", "approval_flow:write",
 		},
 		// hr = 业务管理员：全公司口径，负责人事业务读写（含公告），不再有用户/角色/审计管理权限
 		"hr": {

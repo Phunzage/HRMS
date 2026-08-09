@@ -67,6 +67,9 @@ func Register(r *gin.Engine, db *gorm.DB) {
 		"attendance_correction": correctionService,
 	})
 
+	// 审批流程配置模块（admin 专属，approval_flow:read/write）
+	approvalAdminHandler := handler.NewApprovalAdmin(db)
+
 	// 薪酬模块
 	salaryRepo := repository.NewSalaryRepo(db)
 	salaryService := service.NewSalaryService(db, salaryRepo, empRepo)
@@ -215,6 +218,13 @@ func Register(r *gin.Engine, db *gorm.DB) {
 				approvals.PUT("/tasks/:taskId/approve", approvalHandler.Approve)
 				approvals.PUT("/tasks/:taskId/reject", approvalHandler.Reject)
 				approvals.GET("/:instanceId/tasks", approvalHandler.InstanceTasks)
+			}
+
+			// 审批流程配置（admin 专属权限点 approval_flow:read/write）
+			approvalFlows := authed.Group("/approval-flows")
+			{
+				approvalFlows.GET("", middleware.RequirePermission(db, "approval_flow:read"), approvalAdminHandler.List)
+				approvalFlows.PUT("/:code", middleware.RequirePermission(db, "approval_flow:write"), approvalAdminHandler.Update)
 			}
 
 			// 薪酬管理

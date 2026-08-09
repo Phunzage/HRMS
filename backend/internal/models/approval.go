@@ -14,13 +14,15 @@ type ApprovalFlow struct {
 }
 
 // ApprovalStep 审批流程步骤定义
-// 同一流程内 step_order 唯一；ApproverType 决定审批人解析方式（manager=部门经理 / hr=任意HR）
+// 同一流程内 step_order 唯一；ApproverType 决定审批人解析方式
+// （manager=申请人部门经理 / hr=HR池任意hr / position=指定岗位池该岗位所有在职员工）
 type ApprovalStep struct {
 	ID           uint      `gorm:"primaryKey" json:"id"`
 	FlowID       uint      `gorm:"uniqueIndex:idx_flow_step;not null" json:"flow_id"`  // 所属流程 ID
 	StepOrder    int       `gorm:"uniqueIndex:idx_flow_step;not null" json:"step_order"` // 步骤顺序，从 1 开始
-	ApproverType string    `gorm:"size:16;not null" json:"approver_type"`               // manager / hr
-	Name         string    `gorm:"size:64;not null" json:"name"`                         // 步骤名，如 部门经理审批 / HR终审
+	ApproverType string    `gorm:"size:16;not null" json:"approver_type"`               // manager / hr / position
+	ApproverRef  uint      `gorm:"default:0" json:"approver_ref"`                       // 审批人引用：approver_type=position 时为岗位 ID；manager/hr 为 0
+	Name         string    `gorm:"size:64;not null" json:"name"`                         // 步骤名，如 部门经理审批 / 人事专员审批 / HR终审
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
 }
@@ -40,13 +42,15 @@ type ApprovalInstance struct {
 }
 
 // ApprovalTask 审批任务（每个审批人一条）
-// ApproverID 为审批人用户 ID；HR 步骤可为空（表示由任意 hr/admin 审批）
+// ApproverID 为审批人用户 ID；HR/岗位池步骤可为空（表示由池内任一审批人处理）
+// ApproverRef 在 position 池任务中存岗位 ID（用于匹配该岗位在职员工），manager/hr 为 0
 type ApprovalTask struct {
 	ID           uint       `gorm:"primaryKey" json:"id"`
 	InstanceID   uint       `gorm:"index;not null" json:"instance_id"`   // 所属实例 ID
 	StepOrder    int        `gorm:"not null" json:"step_order"`          // 步骤顺序
-	ApproverType string     `gorm:"size:16;not null" json:"approver_type"` // manager / hr
-	ApproverID   *uint      `gorm:"index" json:"approver_id"`            // 审批人用户 ID，HR 步骤可为空
+	ApproverType string     `gorm:"size:16;not null" json:"approver_type"` // manager / hr / position
+	ApproverID   *uint      `gorm:"index" json:"approver_id"`            // 审批人用户 ID，池步骤可为空
+	ApproverRef  uint       `gorm:"default:0" json:"approver_ref"`       // position 池任务存岗位 ID；manager/hr 为 0
 	Status       string     `gorm:"size:16;default:pending;not null" json:"status"` // pending / approved / rejected
 	Comment      string     `gorm:"size:500" json:"comment"`             // 审批意见
 	ActedAt      *time.Time `json:"acted_at"`                            // 处理时间
