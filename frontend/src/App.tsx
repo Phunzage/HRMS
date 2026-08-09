@@ -17,6 +17,7 @@ import ProfilePage from './pages/ProfilePage'
 import UsersPage from './pages/Users'
 import RolesPage from './pages/Roles'
 import AuditLogsPage from './pages/AuditLogs'
+import ApprovalFlowsPage from './pages/ApprovalFlows'
 import { useAuthStore } from './store/auth'
 
 // 首页：admin/hr 看统计仪表盘，其他角色跳转到考勤（其具备权限的页面）
@@ -63,6 +64,7 @@ function App() {
         <Route path="/users" element={<UsersPage />} />
         <Route path="/roles" element={<RolesPage />} />
         <Route path="/audit-logs" element={<AuditLogsPage />} />
+        <Route path="/approval-flows" element={<ApprovalFlowsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
       </Route>
 

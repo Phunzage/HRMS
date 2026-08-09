@@ -161,7 +161,8 @@ func seedPermissions(db *gorm.DB) error {
 // seedRolePermissions 写入角色-权限关联（admin 不再直接放行，统一查 role_permissions，保证业务只读生效）
 func seedRolePermissions(db *gorm.DB) error {
 	rolePerms := map[string][]string{
-		// admin = 系统管理员：专注系统管理（用户/角色/审计）+ 审批流程配置，仅保留公告与仪表盘监督，不含任何业务数据权限（连只读也无）
+		// admin = 系统管理员：专注系统管理（用户/角色/审计）+ 审批流程配置，仅保留公告与仪表盘监督；
+		// 唯一例外 position:read：审批流程配置「指定岗位」步骤需要岗位列表填充下拉
 		"admin": {
 			"user:read", "user:write",
 			"role:read", "role:write",
@@ -169,6 +170,7 @@ func seedRolePermissions(db *gorm.DB) error {
 			"dashboard:read",
 			"announcement:read", "announcement:write",
 			"approval_flow:read", "approval_flow:write",
+			"position:read",
 		},
 		// hr = 业务管理员：全公司口径，负责人事业务读写（含公告），不再有用户/角色/审计管理权限
 		"hr": {

@@ -15,6 +15,7 @@ import {
   UserCog,
   ShieldCheck,
   ScrollText,
+  Workflow,
   Inbox,
   Bell,
   Sun,
@@ -64,6 +65,7 @@ const systemMenuItems: MenuItem[] = [
   { to: '/users', label: '用户管理', icon: UserCog, roles: ['admin'] },
   { to: '/roles', label: '角色管理', icon: ShieldCheck, roles: ['admin'] },
   { to: '/audit-logs', label: '审计日志', icon: ScrollText, roles: ['admin'] },
+  { to: '/approval-flows', label: '审批流程', icon: Workflow, roles: ['admin'] },
 ]
 
 // 角色编码 → 中文名称
