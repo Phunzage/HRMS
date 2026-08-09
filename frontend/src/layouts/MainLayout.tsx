@@ -23,6 +23,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import { useAuthStore } from '../store/auth'
+import { usePerm } from '../hooks/usePerm'
 import { useThemeStore } from '../store/theme'
 import { useBadgeStore } from '../store/badges'
 import {
@@ -35,7 +36,8 @@ import { fetchBadges, type Badges } from '../api/badge'
 import { formatDateTime } from '../utils/format'
 import ToastContainer from '../components/Toast'
 
-// 侧边栏菜单项：roles 控制可见角色（admin 仅保留仪表盘与公告管理，业务菜单已移除）；badge 关联角标字段（>0 时右侧显示）
+// 侧边栏菜单项：roles 控制可见角色（admin 仅保留仪表盘与公告管理，业务菜单已移除）；badge 关联角标字段（>0 时右侧显示）；
+// perms 为权限点校验（hasAny，任意命中即显示），用于敏感菜单项（如审批流程）与角色权限点联动
 interface MenuItem {
   to: string
   label: string
@@ -43,6 +45,7 @@ interface MenuItem {
   end?: boolean
   roles: string[]
   badge?: keyof Badges
+  perms?: string[]
 }
 
 const menuItems: MenuItem[] = [
@@ -65,7 +68,8 @@ const systemMenuItems: MenuItem[] = [
   { to: '/users', label: '用户管理', icon: UserCog, roles: ['admin'] },
   { to: '/roles', label: '角色管理', icon: ShieldCheck, roles: ['admin'] },
   { to: '/audit-logs', label: '审计日志', icon: ScrollText, roles: ['admin'] },
-  { to: '/approval-flows', label: '审批流程', icon: Workflow, roles: ['admin'] },
+  // 审批流程为敏感配置项：菜单可见性同时受审批流程配置权限点控制
+  { to: '/approval-flows', label: '审批流程', icon: Workflow, roles: ['admin'], perms: ['approval_flow:write'] },
 ]
 
 // 角色编码 → 中文名称
@@ -98,6 +102,7 @@ export default function MainLayout() {
   const theme = useThemeStore((s) => s.theme)
   const toggleTheme = useThemeStore((s) => s.toggle)
   const navigate = useNavigate()
+  const { hasAny } = usePerm()
 
   // 导航栏角标（侧边栏菜单 + 顶栏铃铛共用，由 30s/聚焦轮询统一刷新）
   const pendingApprovals = useBadgeStore((s) => s.pending_approvals)
@@ -175,9 +180,15 @@ export default function MainLayout() {
       .catch(() => undefined)
   }
 
-  // 按角色过滤菜单
-  const visibleMenu = menuItems.filter((item) => !user?.role_code || item.roles.includes(user.role_code))
-  const visibleSystem = systemMenuItems.filter((item) => !user?.role_code || item.roles.includes(user.role_code))
+  // 按角色过滤菜单（敏感项额外校验权限点：有权限点概念时优先 hasAny，无则按 roles）
+  const visibleMenu = menuItems.filter((item) => {
+    if (item.perms && !hasAny(item.perms)) return false
+    return !user?.role_code || item.roles.includes(user.role_code)
+  })
+  const visibleSystem = systemMenuItems.filter((item) => {
+    if (item.perms && !hasAny(item.perms)) return false
+    return !user?.role_code || item.roles.includes(user.role_code)
+  })
 
   // 侧边栏角标值查找：menu item.badge（Badges 字段名）→ 当前 store 数值
   const badgeMap: Record<keyof Badges, number> = {

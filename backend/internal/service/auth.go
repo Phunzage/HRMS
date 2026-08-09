@@ -46,13 +46,14 @@ func NewAuthService(repo *repository.UserRepo, jwtSecret string, tokenExpireHour
 	}
 }
 
-// UserBrief 用户简要信息（登录与用户信息通用）
+// UserBrief 用户简要信息（登录与用户信息通用，含全部权限点 code 供前端 UI 权限联动）
 type UserBrief struct {
-	ID         uint   `json:"id"`
-	Username   string `json:"username"`
-	FullName   string `json:"full_name"`
-	RoleCode   string `json:"role_code"`
-	EmployeeID *uint  `json:"employee_id"`
+	ID          uint     `json:"id"`
+	Username    string   `json:"username"`
+	FullName    string   `json:"full_name"`
+	RoleCode    string   `json:"role_code"`
+	EmployeeID  *uint    `json:"employee_id"`
+	Permissions []string `json:"permissions"`
 }
 
 // LoginResult 登录成功返回体：访问令牌 + 刷新令牌 + 有效期（秒）
@@ -143,16 +144,22 @@ func (s *AuthService) issueLoginResult(user *models.User) (*LoginResult, error) 
 	if err != nil {
 		return nil, err
 	}
+	// 携带当前用户全部权限点，供前端登录后立即做 UI 权限联动
+	perms, err := s.repo.FindPermissionsByRoleID(user.RoleID)
+	if err != nil {
+		return nil, err
+	}
 	return &LoginResult{
 		Token:        accessToken,
 		RefreshToken: refreshToken,
 		ExpiresIn:    int64(s.tokenExpire.Seconds()),
 		User: &UserBrief{
-			ID:         user.ID,
-			Username:   user.Username,
-			FullName:   user.FullName,
-			RoleCode:   user.Role.Code,
-			EmployeeID: user.EmployeeID,
+			ID:          user.ID,
+			Username:    user.Username,
+			FullName:    user.FullName,
+			RoleCode:    user.Role.Code,
+			EmployeeID:  user.EmployeeID,
+			Permissions: perms,
 		},
 	}, nil
 }
@@ -181,32 +188,38 @@ func (s *AuthService) RefreshToken(refreshToken string) (*LoginResult, error) {
 	return s.issueLoginResult(user)
 }
 
-// MeResult 当前用户信息（含角色与关联员工）
+// MeResult 当前用户信息（含角色、关联员工与全部权限点）
 type MeResult struct {
-	ID         uint             `json:"id"`
-	Username   string           `json:"username"`
-	FullName   string           `json:"full_name"`
-	Email      string           `json:"email"`
-	RoleCode   string           `json:"role_code"`
-	EmployeeID *uint            `json:"employee_id"`
-	Role       *models.Role     `json:"role,omitempty"`
-	Employee   *models.Employee `json:"employee,omitempty"`
+	ID          uint             `json:"id"`
+	Username    string           `json:"username"`
+	FullName    string           `json:"full_name"`
+	Email       string           `json:"email"`
+	RoleCode    string           `json:"role_code"`
+	EmployeeID  *uint            `json:"employee_id"`
+	Permissions []string         `json:"permissions"`
+	Role        *models.Role     `json:"role,omitempty"`
+	Employee    *models.Employee `json:"employee,omitempty"`
 }
 
-// Me 获取当前登录用户信息
+// Me 获取当前登录用户信息（含角色拥有的权限点列表，供前端 UI 权限联动）
 func (s *AuthService) Me(userID uint) (*MeResult, error) {
 	user, err := s.repo.FindByID(userID)
 	if err != nil {
 		return nil, err
 	}
+	perms, err := s.repo.FindPermissionsByRoleID(user.RoleID)
+	if err != nil {
+		return nil, err
+	}
 	result := &MeResult{
-		ID:         user.ID,
-		Username:   user.Username,
-		FullName:   user.FullName,
-		Email:      user.Email,
-		RoleCode:   user.Role.Code,
-		EmployeeID: user.EmployeeID,
-		Role:       user.Role,
+		ID:          user.ID,
+		Username:    user.Username,
+		FullName:    user.FullName,
+		Email:       user.Email,
+		RoleCode:    user.Role.Code,
+		EmployeeID:  user.EmployeeID,
+		Permissions: perms,
+		Role:        user.Role,
 	}
 	if user.EmployeeID != nil {
 		if emp, err := s.repo.FindEmployeeByID(*user.EmployeeID); err == nil {

@@ -12,6 +12,7 @@ import {
 import { fetchAllEmployees, type Employee } from '../api/employee'
 import type { PageResult } from '../api/client'
 import { useAuthStore } from '../store/auth'
+import { usePerm } from '../hooks/usePerm'
 import { toast } from '../store/toast'
 import { SALARY_STATUS } from '../utils/status'
 import { currentMonth, formatMoney } from '../utils/format'
@@ -45,8 +46,9 @@ const emptyForm: SalaryForm = {
 
 export default function SalaryPage() {
   const role = useAuthStore((s) => s.user?.role_code)
-  // 工资单增改/批量生成仅 hr（admin 只读监督）
-  const canManage = role === 'hr'
+  const { has } = usePerm()
+  // 工资单增改/批量生成需 salary:write 权限点（种子仅 hr，可在角色管理动态调整）
+  const canManage = has('salary:write')
   // 员工筛选下拉为只读功能，admin 仍可浏览过滤
   const canFilter = role === 'admin' || role === 'hr'
 

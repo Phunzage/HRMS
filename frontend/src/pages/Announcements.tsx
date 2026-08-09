@@ -8,8 +8,8 @@ import {
   type Announcement,
 } from '../api/announcement'
 import type { PageResult } from '../api/client'
-import { useAuthStore } from '../store/auth'
 import { useBadgeStore } from '../store/badges'
+import { usePerm } from '../hooks/usePerm'
 import { toast } from '../store/toast'
 import { Pin, Pencil, Trash2, Plus } from 'lucide-react'
 import { formatDateTime } from '../utils/format'
@@ -33,9 +33,9 @@ const emptyForm: AnnouncementForm = {
 }
 
 export default function AnnouncementsPage() {
-  const role = useAuthStore((s) => s.user?.role_code)
-  // 公告增删改 hr + admin（admin 需能发维护公告）
-  const canManage = role === 'hr' || role === 'admin'
+  // 公告增删改需 announcement:write 权限点（admin/hr 种子已含，可在角色管理动态调整）
+  const { has } = usePerm()
+  const canManage = has('announcement:write')
   const setBadges = useBadgeStore((s) => s.setBadges)
 
   const [keyword, setKeyword] = useState('')

@@ -24,7 +24,9 @@ export default function RequireAuth({ children }: { children: ReactNode }) {
   const fetched = useRef(false)
 
   useEffect(() => {
-    if (token && !user && !fetched.current) {
+    // 需要补全用户信息的场景：无 user，或持久化的旧 user 缺少 permissions（批次 33 新增字段）
+    const needRefresh = !user || !Array.isArray(user.permissions)
+    if (token && needRefresh && !fetched.current) {
       fetched.current = true
       setLoading(true)
       me()

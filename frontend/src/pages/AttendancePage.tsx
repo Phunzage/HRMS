@@ -11,6 +11,7 @@ import {
 import { fetchAllEmployees, type Employee } from '../api/employee'
 import type { PageResult } from '../api/client'
 import { useAuthStore } from '../store/auth'
+import { usePerm } from '../hooks/usePerm'
 import { toast } from '../store/toast'
 import { ATTENDANCE_STATUS } from '../utils/status'
 import { currentMonth, formatDate, formatDateTime, toBackendDateTime, toDatetimeLocal } from '../utils/format'
@@ -45,14 +46,15 @@ const emptyForm: AttForm = {
 export default function AttendancePage() {
   const user = useAuthStore((s) => s.user)
   const role = user?.role_code
-  // 补录/编辑/删除仅 hr（admin 只读监督）
-  const canManage = role === 'hr'
+  const { has, hasAny } = usePerm()
+  // 补录/编辑/删除需 attendance:write 权限点（种子仅 hr/admin，可在角色管理动态调整）
+  const canManage = has('attendance:write')
   // 员工筛选下拉：admin/hr/manager 可浏览过滤；employee 仅本人（后端已强制过滤，前端隐藏下拉）
-  const canFilter = role === 'admin' || role === 'hr' || role === 'manager'
+  const canFilter = role !== 'employee'
   // 打卡自助需关联员工档案
   const canCheck = !!user?.employee_id
-  // 考勤月报仅 admin/hr/manager 可见
-  const canReport = role === 'admin' || role === 'hr' || role === 'manager'
+  // 考勤月报：有 attendance:read 即可看（employee 后端已限本人）
+  const canReport = hasAny(['attendance:read'])
 
   // Tab：考勤记录 / 补卡申请 / 考勤月报
   const [activeTab, setActiveTab] = useState<'records' | 'corrections' | 'report'>('records')

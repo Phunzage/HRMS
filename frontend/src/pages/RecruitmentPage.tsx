@@ -14,7 +14,7 @@ import {
 } from '../api/recruitment'
 import { fetchDepartments, fetchAllPositions, type Position, type Department } from '../api/employee'
 import type { PageResult } from '../api/client'
-import { useAuthStore } from '../store/auth'
+import { usePerm } from '../hooks/usePerm'
 import { toast } from '../store/toast'
 import { JOB_STATUS, CANDIDATE_STATUS } from '../utils/status'
 import { formatDate } from '../utils/format'
@@ -67,9 +67,9 @@ const emptyCandidateForm: CandidateForm = {
 type TabKey = 'jobs' | 'candidates'
 
 export default function RecruitmentPage() {
-  const role = useAuthStore((s) => s.user?.role_code)
-  // 招聘增删改仅 hr（admin 只读监督）
-  const canManage = role === 'hr'
+  // 招聘增删改需 recruitment:write 权限点（种子仅 hr，可在角色管理动态调整）
+  const { has } = usePerm()
+  const canManage = has('recruitment:write')
 
   const [activeTab, setActiveTab] = useState<TabKey>('jobs')
 

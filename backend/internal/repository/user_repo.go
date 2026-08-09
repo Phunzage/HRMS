@@ -45,6 +45,23 @@ func (r *UserRepo) FindEmployeeByID(id uint) (*models.Employee, error) {
 	return &emp, nil
 }
 
+// FindPermissionsByRoleID 查询角色拥有的权限点编码数组（/auth/me 返回当前用户全部权限点用）
+func (r *UserRepo) FindPermissionsByRoleID(roleID uint) ([]string, error) {
+	var codes []string
+	if err := r.db.Table("permissions").
+		Select("permissions.code").
+		Joins("JOIN role_permissions ON role_permissions.permission_id = permissions.id").
+		Where("role_permissions.role_id = ?", roleID).
+		Order("permissions.id ASC").
+		Pluck("code", &codes).Error; err != nil {
+		return nil, err
+	}
+	if codes == nil {
+		codes = []string{}
+	}
+	return codes, nil
+}
+
 // UpdatePassword 更新指定用户的密码哈希
 func (r *UserRepo) UpdatePassword(userID uint, passwordHash string) error {
 	return r.db.Model(&models.User{}).Where("id = ?", userID).Update("password_hash", passwordHash).Error

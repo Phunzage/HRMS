@@ -9,7 +9,7 @@ import {
   type Department,
   type Employee,
 } from '../api/employee'
-import { useAuthStore } from '../store/auth'
+import { usePerm } from '../hooks/usePerm'
 import { toast } from '../store/toast'
 import { flattenDepartments, deptOptionLabel } from '../utils/tree'
 import Modal from '../components/Modal'
@@ -93,9 +93,9 @@ function DeptNode({ node, level, canManage, managerMap, onAdd, onEdit, onDelete 
 }
 
 export default function DepartmentTree() {
-  const role = useAuthStore((s) => s.user?.role_code)
-  // 部门增删改仅 hr（admin 只读监督）
-  const canManage = role === 'hr'
+  // 部门增删改需 department:write 权限点（种子仅 hr，可在角色管理动态调整）
+  const { has } = usePerm()
+  const canManage = has('department:write')
 
   const [tree, setTree] = useState<Department[]>([])
   const [loading, setLoading] = useState(true)

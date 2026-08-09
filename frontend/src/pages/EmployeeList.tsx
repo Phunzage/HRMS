@@ -11,7 +11,7 @@ import {
   type Department,
 } from '../api/employee'
 import type { PageResult } from '../api/client'
-import { useAuthStore } from '../store/auth'
+import { usePerm } from '../hooks/usePerm'
 import { toast } from '../store/toast'
 import { EMPLOYEE_STATUS, GENDER } from '../utils/status'
 import { formatDate } from '../utils/format'
@@ -58,9 +58,9 @@ const emptyForm: EmployeeForm = {
 }
 
 export default function EmployeeList() {
-  const role = useAuthStore((s) => s.user?.role_code)
-  // 业务写操作仅 hr（admin 只读监督，manager 仅浏览本部门）
-  const canManage = role === 'hr'
+  // 业务写操作需 employee:write 权限点（种子仅 hr，可在角色管理动态调整）
+  const { hasAny } = usePerm()
+  const canManage = hasAny(['employee:write'])
 
   // 列表查询条件
   const [keyword, setKeyword] = useState('')

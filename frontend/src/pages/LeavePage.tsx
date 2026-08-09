@@ -17,6 +17,7 @@ import {
 } from '../api/approval'
 import type { PageResult } from '../api/client'
 import { useAuthStore } from '../store/auth'
+import { usePerm } from '../hooks/usePerm'
 import { toast } from '../store/toast'
 import { LEAVE_STATUS, LEAVE_TYPE } from '../utils/status'
 import { formatDate, formatDateTime, formatDays } from '../utils/format'
@@ -48,8 +49,9 @@ type TabKey = 'mine' | 'todo' | 'all'
 export default function LeavePage() {
   const user = useAuthStore((s) => s.user)
   const role = user?.role_code
-  // admin 无请假审批入口（批次 26 后端已移除权限）；hr/manager 可审批
-  const showTodo = role === 'hr' || role === 'manager'
+  const { has } = usePerm()
+  // 待我审批：有请假审批权限即可（种子 hr/manager 已含 leave:approve，admin 无入口）
+  const showTodo = has('leave:approve')
   const showAll = role === 'hr'
 
   // hr 无个人员工档案，默认落在「全部申请」

@@ -9,6 +9,8 @@ export interface AuthUser {
   role_code: string
   employee_id: number | null
   email?: string
+  /** 当前用户全部权限点 code（后端 /auth/me 与登录响应返回；旧持久化数据可能缺失） */
+  permissions?: string[]
 }
 
 interface AuthState {

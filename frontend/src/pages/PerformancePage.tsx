@@ -11,6 +11,7 @@ import {
 import { fetchAllEmployees, type Employee } from '../api/employee'
 import type { PageResult } from '../api/client'
 import { useAuthStore } from '../store/auth'
+import { usePerm } from '../hooks/usePerm'
 import { toast } from '../store/toast'
 import { PERFORMANCE_STATUS, PERFORMANCE_RATING } from '../utils/status'
 import Modal from '../components/Modal'
@@ -53,8 +54,10 @@ const emptyForm: PerfForm = {
 
 export default function PerformancePage() {
   const role = useAuthStore((s) => s.user?.role_code)
-  // 操作权限：employee/admin 只读；hr 可建/改/提交/删/批准；manager 可建/改/提交/删（不可批准）
-  const canOperate = role === 'hr' || role === 'manager'
+  const { has } = usePerm()
+  // 操作权限：employee/admin 只读；有 performance:write 可建/改/提交/删/批准（种子 hr+manager 已含）
+  const canOperate = has('performance:write')
+  // 批准为业务终审动作，无独立权限点，保留 hr 角色限制
   const canApprove = role === 'hr'
   // 员工筛选下拉为只读功能，admin 仍可浏览过滤
   const canFilterEmployee = role === 'admin' || role === 'hr'

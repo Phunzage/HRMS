@@ -11,13 +11,15 @@ import {
   type ApprovalStepItem,
 } from '../api/approvalFlow'
 import { fetchAllPositions, type Position } from '../api/employee'
-import { useAuthStore } from '../store/auth'
+import { listRoles, type RoleItem } from '../api/role'
+import { usePerm } from '../hooks/usePerm'
 import { toast } from '../store/toast'
 import Modal from '../components/Modal'
 
-// 审批人类型 → 展示 badge 配色（部门经理=info / 按权限=primary / HR终审=primary / 指定岗位=warning）
+// 审批人类型 → 展示 badge 配色（部门经理=info / 指定角色=secondary / 按权限=primary / HR终审=primary / 指定岗位=warning）
 const TYPE_BADGE: Record<ApprovalStepItem['approver_type'], string> = {
   manager: 'badge-info',
+  role: 'badge-secondary',
   permission: 'badge-primary',
   hr: 'badge-primary',
   position: 'badge-warning',
@@ -29,7 +31,7 @@ interface StepDraft extends ApprovalStepItem {
   nameEdited: boolean
 }
 
-// 生成某类型的默认步骤名（类型选择后自动填充，用户可改；permission 由权限点决定，另行处理）
+// 生成某类型的默认步骤名（类型选择后自动填充，用户可改；role 由所选角色决定，permission 由权限点决定，另行处理）
 function defaultName(type: ApprovalStepItem['approver_type'], positionName = '') {
   switch (type) {
     case 'manager':
@@ -38,6 +40,7 @@ function defaultName(type: ApprovalStepItem['approver_type'], positionName = '')
       return 'HR 终审'
     case 'position':
       return positionName ? `${positionName}审批` : ''
+    case 'role':
     case 'permission':
       return ''
   }
@@ -49,12 +52,14 @@ function defaultPermission(flowCode?: string) {
 }
 
 export default function ApprovalFlowsPage() {
-  const role = useAuthStore((s) => s.user?.role_code)
-  const isAdmin = role === 'admin'
+  // 审批流程配置为写操作页面，须拥有 approval_flow:write（admin 种子已含该权限点）
+  const { has } = usePerm()
+  const canConfigure = has('approval_flow:write')
 
   const [flows, setFlows] = useState<ApprovalFlowItem[]>([])
   const [approvalPerms, setApprovalPerms] = useState<ApprovalPermission[]>([])
   const [positions, setPositions] = useState<Position[]>([])
+  const [roles, setRoles] = useState<RoleItem[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
@@ -73,12 +78,17 @@ export default function ApprovalFlowsPage() {
   // 权限点 code → 拥有该权限的角色列表
   const permissionRoles = (code: string) => approvalPerms.find((p) => p.code === code)?.roles ?? []
 
-  // 岗位列表（编辑 Modal 岗位下拉用，仅拉一次）
+  // 岗位列表 + 角色列表（编辑 Modal 岗位/角色下拉用，仅拉一次）
   useEffect(() => {
     let cancelled = false
     fetchAllPositions()
       .then((res) => {
         if (!cancelled) setPositions(res.list ?? [])
+      })
+      .catch(() => undefined)
+    listRoles()
+      .then((res) => {
+        if (!cancelled) setRoles(Array.isArray(res) ? res : [])
       })
       .catch(() => undefined)
     return () => {
@@ -88,7 +98,7 @@ export default function ApprovalFlowsPage() {
 
   // 审批流程列表 + 审批权限点
   useEffect(() => {
-    if (!isAdmin) return
+    if (!canConfigure) return
     let cancelled = false
     setLoading(true)
     setError('')
@@ -108,10 +118,13 @@ export default function ApprovalFlowsPage() {
     return () => {
       cancelled = true
     }
-  }, [reloadKey, isAdmin])
+  }, [reloadKey, canConfigure])
 
   // 岗位 ID → 岗位名（卡片展示指定岗位步骤时用）
   const positionName = (ref: number) => positions.find((p) => p.id === ref)?.name
+
+  // 角色 ID → 角色名（卡片展示指定角色步骤、编辑 Modal 自动命名时用）
+  const roleName = (id: number) => roles.find((r) => r.id === id)?.name
 
   const openEdit = (flow: ApprovalFlowItem) => {
     setEditingFlow(flow)
@@ -125,7 +138,7 @@ export default function ApprovalFlowsPage() {
     if (draftSteps.length >= 5) return // 后端限制 1~5 级
     setDraftSteps((steps) => [
       ...steps,
-      { key: ++keyRef.current, step_order: steps.length + 1, approver_type: 'manager', approver_ref: 0, approver_permission: '', name: '部门经理审批', nameEdited: false },
+      { key: ++keyRef.current, step_order: steps.length + 1, approver_type: 'manager', approver_ref: 0, approver_permission: '', approver_role_id: 0, name: '部门经理审批', nameEdited: false },
     ])
   }
 
@@ -142,7 +155,7 @@ export default function ApprovalFlowsPage() {
   }
 
   // 切换审批人类型：permission 自动建议当前流程对应的权限点并填充步骤名；
-  // 非 permission 清空权限点；非指定岗位清空岗位引用
+  // role 清空角色引用（选角色后自动填充步骤名）；非 permission/role 清空对应引用
   const handleTypeChange = (key: number, type: StepDraft['approver_type']) => {
     setDraftSteps((steps) =>
       steps.map((s) => {
@@ -154,8 +167,22 @@ export default function ApprovalFlowsPage() {
             ...s,
             approver_type: type,
             approver_ref: 0,
+            approver_role_id: 0,
             approver_permission: perm,
             name: s.nameEdited ? s.name : permissionName(perm) || '权限审批',
+            nameEdited: false,
+          }
+        }
+        if (type === 'role') {
+          const currentRole = roles.find((r) => r.id === s.approver_role_id)
+          return {
+            ...s,
+            approver_type: type,
+            approver_ref: 0,
+            approver_role_id: s.approver_role_id || 0,
+            approver_permission: '',
+            // 已选过角色时按「{角色名}审批」自动填充，否则留空待选角色后填充
+            name: s.nameEdited ? s.name : currentRole ? `${currentRole.name}审批` : '',
             nameEdited: false,
           }
         }
@@ -163,10 +190,23 @@ export default function ApprovalFlowsPage() {
           ...s,
           approver_type: type,
           approver_ref: type === 'position' ? s.approver_ref : 0,
+          approver_role_id: 0,
           approver_permission: '',
           name: defaultName(type, position?.name),
           nameEdited: false,
         }
+      }),
+    )
+  }
+
+  // 选择审批角色：未手动改过名称时自动填充「{角色名}审批」
+  const handleRoleChange = (key: number, roleId: number) => {
+    setDraftSteps((steps) =>
+      steps.map((s) => {
+        if (s.key !== key) return s
+        const role = roles.find((r) => r.id === roleId)
+        const name = role && !s.nameEdited ? `${role.name}审批` : s.name
+        return { ...s, approver_role_id: roleId, name }
       }),
     )
   }
@@ -199,10 +239,14 @@ export default function ApprovalFlowsPage() {
 
   const handleSave = async () => {
     if (!editingFlow) return
-    // 前端校验：步骤名非空；指定岗位必须已选岗位；按权限审批必须已选权限点
+    // 前端校验：步骤名非空；指定角色必须已选角色；指定岗位必须已选岗位；按权限审批必须已选权限点
     for (const s of draftSteps) {
       if (!s.name.trim()) {
         toast.error(`第 ${s.step_order} 级步骤名称不能为空`)
+        return
+      }
+      if (s.approver_type === 'role' && !s.approver_role_id) {
+        toast.error(`第 ${s.step_order} 级（指定角色）请选择角色`)
         return
       }
       if (s.approver_type === 'position' && !s.approver_ref) {
@@ -218,11 +262,12 @@ export default function ApprovalFlowsPage() {
     try {
       await updateApprovalFlow(editingFlow.code, {
         name: editingFlow.name,
-        steps: draftSteps.map(({ step_order, approver_type, approver_ref, approver_permission, name }) => ({
+        steps: draftSteps.map(({ step_order, approver_type, approver_ref, approver_permission, approver_role_id, name }) => ({
           step_order,
           approver_type,
           approver_ref,
           approver_permission,
+          approver_role_id,
           name,
         })),
       })
@@ -236,27 +281,36 @@ export default function ApprovalFlowsPage() {
     }
   }
 
-  // 非 admin 直接访问时显示无权限提示
-  if (!isAdmin) {
+  // 无审批流程配置权限时显示无权限提示
+  if (!canConfigure) {
     return (
       <div className="flex justify-center py-24">
         <div className="alert alert-error max-w-lg">
-          <span>无权限访问该页面，仅系统管理员可配置审批流程。</span>
+          <span>无权限访问该页面，需要「审批流程配置」权限。</span>
         </div>
       </div>
     )
   }
 
-  // 步骤卡片：审批人类型 badge 文案（permission 显示「按权限·权限名」）
+  // 步骤卡片：审批人类型 badge 文案（role 显示「指定角色·角色名」、permission 显示「按权限·权限名」）
   const stepTypeLabel = (s: ApprovalStepItem) =>
-    s.approver_type === 'permission' ? `按权限·${permissionName(s.approver_permission)}` : APPROVER_TYPE_LABEL[s.approver_type]
+    s.approver_type === 'role'
+      ? `指定角色·${s.approver_role_name || roleName(s.approver_role_id) || '未命名'}`
+      : s.approver_type === 'permission'
+        ? `按权限·${permissionName(s.approver_permission)}`
+        : APPROVER_TYPE_LABEL[s.approver_type]
 
-  // permission 步骤可审批角色文案（如「人事、经理 可审批」）
+  // permission 步骤可审批角色文案（如「人事、经理 可审批」）；role 步骤直接展示角色名
   const stepRolesText = (s: ApprovalStepItem) => {
-    if (s.approver_type !== 'permission') return ''
-    return permissionRoles(s.approver_permission)
-      .map((r) => r.name)
-      .join('、')
+    if (s.approver_type === 'permission') {
+      return permissionRoles(s.approver_permission)
+        .map((r) => r.name)
+        .join('、')
+    }
+    if (s.approver_type === 'role') {
+      return s.approver_role_name || roleName(s.approver_role_id) || ''
+    }
+    return ''
   }
 
   return (
@@ -264,7 +318,7 @@ export default function ApprovalFlowsPage() {
       <div className="flex flex-col gap-1">
         <h2 className="text-xl font-bold">审批流程配置</h2>
         <div className="alert alert-info shadow-sm">
-          <span>配置请假/补卡的审批级别与每级审批人，修改仅影响新申请，已进行中的审批不受影响。</span>
+          <span>配置请假/补卡的审批级别与每级审批人，修改仅影响新申请，已进行中的审批不受影响。审批优先级=步骤顺序：第 1 级先审，通过后进入第 2 级…</span>
         </div>
       </div>
 
@@ -317,6 +371,11 @@ export default function ApprovalFlowsPage() {
                             </span>
                           )}
                         </div>
+                        {s.approver_type === 'role' && (
+                          <div className="mt-1 text-xs text-base-content/50">
+                            {stepRolesText(s) ? `${stepRolesText(s)} 可审批` : '未选择角色'}
+                          </div>
+                        )}
                         {s.approver_type === 'permission' && (
                           <div className="mt-1 text-xs text-base-content/50">
                             {stepRolesText(s) ? `${stepRolesText(s)} 可审批` : '暂无角色拥有该权限'}
@@ -378,8 +437,8 @@ export default function ApprovalFlowsPage() {
                   value={s.approver_type}
                   onChange={(e) => handleTypeChange(s.key, e.target.value as StepDraft['approver_type'])}
                 >
-                  {/* 新配置仅 manager/permission；旧 hr/position 步骤保留当前选项以便展示 */}
-                  {(s.approver_type === 'hr' || s.approver_type === 'position'
+                  {/* 新配置仅 manager/role；旧 hr/position/permission 步骤保留当前选项以便展示 */}
+                  {(s.approver_type === 'hr' || s.approver_type === 'position' || s.approver_type === 'permission'
                     ? [...NEW_APPROVER_TYPES, s.approver_type]
                     : NEW_APPROVER_TYPES
                   ).map((t) => (
@@ -429,6 +488,22 @@ export default function ApprovalFlowsPage() {
                 </div>
               )}
 
+              {/* 指定角色：角色下拉（全部角色，含部门经理/人事专员/副总经理等） */}
+              {s.approver_type === 'role' && (
+                <select
+                  className="select select-bordered select-sm mt-2 w-full"
+                  value={s.approver_role_id}
+                  onChange={(e) => handleRoleChange(s.key, Number(e.target.value))}
+                >
+                  <option value={0}>请选择角色</option>
+                  {roles.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+
               {/* 仅指定岗位时显示岗位下拉 */}
               {s.approver_type === 'position' && (
                 <select
@@ -446,8 +521,8 @@ export default function ApprovalFlowsPage() {
               )}
 
               {/* 旧类型兼容提示 */}
-              {(s.approver_type === 'hr' || s.approver_type === 'position') && (
-                <div className="mt-1 text-xs text-warning">旧类型，建议迁移为「按权限审批」</div>
+              {(s.approver_type === 'hr' || s.approver_type === 'position' || s.approver_type === 'permission') && (
+                <div className="mt-1 text-xs text-warning">旧类型，建议迁移为「指定角色」或「按权限审批」</div>
               )}
             </div>
           ))}

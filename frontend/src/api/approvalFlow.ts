@@ -1,7 +1,7 @@
 import client from './client'
 
-// 审批人类型：manager=部门经理 / permission=按权限审批 / hr=HR终审(旧) / position=指定岗位(旧)
-export type ApproverType = 'manager' | 'permission' | 'hr' | 'position'
+// 审批人类型：manager=部门经理 / role=指定角色 / permission=按权限审批(旧) / hr=HR终审(旧) / position=指定岗位(旧)
+export type ApproverType = 'manager' | 'role' | 'permission' | 'hr' | 'position'
 
 // 审批流程步骤配置项（编辑 Modal 内步骤行；id 仅已有步骤返回，新增步骤无）
 export interface ApprovalStepItem {
@@ -10,6 +10,8 @@ export interface ApprovalStepItem {
   approver_type: ApproverType
   approver_ref: number // position 时为岗位 ID，否则 0
   approver_permission: string // permission 时为审批权限点 code（如 leave:approve），否则空
+  approver_role_id: number // role 时为审批角色 ID，否则 0
+  approver_role_name?: string // role 时后端 JOIN roles 返回的角色名（卡片展示用）
   name: string
 }
 
@@ -44,13 +46,14 @@ export interface ApprovalFlowListResult {
 // 审批人类型 → 中文名称（页面 badge 与下拉选项共用）
 export const APPROVER_TYPE_LABEL: Record<ApproverType, string> = {
   manager: '部门经理',
+  role: '指定角色',
   permission: '按权限审批',
   hr: 'HR 终审',
   position: '指定岗位',
 }
 
-// 新配置可选的审批人类型（hr/position 仅兼容旧配置，不再提供新选项）
-export const NEW_APPROVER_TYPES: ApproverType[] = ['manager', 'permission']
+// 新配置可选的审批人类型（hr/position/permission 仅兼容旧配置，不再提供新选项）
+export const NEW_APPROVER_TYPES: ApproverType[] = ['manager', 'role']
 
 // 审批权限点 code → 名称兜底（GET /approval-flows 未返回时使用）
 export const APPROVAL_PERMISSION_LABELS: Record<string, string> = {
