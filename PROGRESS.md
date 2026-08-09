@@ -44,6 +44,9 @@
 | M31 | 审批链修复(递归经理+角色池) | prompts/batch32_approval_fix.md | ✅ 完成 | 次日 19:20 |
 | M32 | UI权限与权限点同步(usePerm) | prompts/batch33_perm_frontend.md | ✅ 完成 | 次日 19:35 |
 | M33 | VP菜单权限点驱动+审批提示动态化 | prompts/batch34_vp_menu_dynamic_toast.md | ✅ 完成 | 次日 20:30 |
+| M34 | 服务器部署+更新检查API | prompts/batch35_server_deploy.md | ✅ 完成 | 次日 21:00 |
+| M35 | Electron Windows客户端+随机更新 | prompts/batch36_electron_desktop.md | ✅ 完成 | 次日 22:00 |
+| M36 | Capacitor Android APK+随机更新 | prompts/batch37_android_apk.md | ✅ 完成 | 次日 22:30 |
 
 ## 已确认的环境
 
@@ -138,6 +141,15 @@
 1. **VP（副总经理）登录侧边栏空白**：菜单项 roles 数组全小写，自定义角色 role_code（如 VP 大写）大小写不匹配被全过滤。改为**权限点优先 + roles 兜底**：每个业务菜单项补充 perms（有权限点按 hasAny 判定、perms=[] 登录可见、无 perms 按 roles 大小写不敏感兜底）；系统管理保持 admin 专属。VP（14 权限）实测侧边栏 11 项：员工/部门/岗位/考勤/请假/我的审批/薪酬/公告/绩效/招聘/个人中心，无系统管理、无仪表盘（VP 无 dashboard:read，默认按权限点不给）✅
 2. **审批通过 toast 硬编码「等待 HR 终审」**：审批流程可配置（本库请假二级实为副总经理/VP 角色）。后端 `ApproveTask` 响应增加 `next_step_name`/`next_step_type`（按步骤类型计算显示名：manager→部门经理审批、role→{角色名}审批、hr→HR终审、position→岗位名、permission→权限点名，终审=空），前端 ApprovalsPage/LeavePage/AttendanceCorrections 三处据 next_step_name 动态提示。实测：刘尧过请假一级→「已通过，等待副总经理审批」，VP 过二级终审→「审批已通过」；补卡单级终审→「补卡审批已通过」（不再误报等待 HR 终审）✅
 3. **顺带修复 usePerm 无限重渲染崩溃**：`useAuthStore(s => s.user?.permissions ?? [])` 在 permissions 缺失时每次返回新数组引用，触发 React 18 useSyncExternalStore「Maximum update depth exceeded」崩溃（旧 localStorage 无 permissions 字段即触发，guard 的 /auth/me 补全来不及执行）。改为模块级 `EMPTY_PERMS` 稳定空引用，实测 VP 登录渲染正常 ✅
+
+## 十轮（部署上线）完成情况
+
+- **服务器部署**：Ubuntu 24.04 @ 115.29.197.130，PostgreSQL（低内存调优）+ Go 后端 systemd + Nginx 反代（80 端口，SPA 回退）+ UFW 加固（仅 22/80/443）；公网 health/登录/静态页全通
+- **更新检查 API**：GET /api/v1/update/check?platform=win|android&build=N → has_update + 最新版本信息；admin 管理接口 POST/GET /api/v1/update/versions；权限点 update:read/write
+- **Windows 桌面端**：Electron + electron-builder → `hrms-desktop Setup 1.0.0.exe`（81.8MB）；**随机更新拉取**（启动 5s 首次检查 + 30~60min 随机间隔轮询）；下载完整安装包到下载目录引导安装；前端更新提示条（hrmsUpdater bridge）
+- **Android 端**：Capacitor 包装（3.2MB APK，com.hrms.app）；原生 Updater（随机间隔 + 通知 + DownloadManager 下载 + 安装引导）；targetSdk 36 / minSdk 24
+- **更新包分发**：/opt/hrms/updates/（win exe + android apk），Nginx /updates/ 静态下载，双平台 build=0 均返回 has_update:true、下载 200 OK
+- **遗留**：Android 用 debug 签名（上架需正式 keystore）、默认图标、http 明文（绑域名后上 https）、gradle 需镜像下载
 
 ## 二轮增强完成情况
 
