@@ -145,10 +145,24 @@ export default function UsersPage() {
     setSaving(true)
     try {
       if (editing) {
+        // 角色变更确认：授予/变更系统权限是敏感操作，二次确认防止误操作
+        const newRoleId = Number(form.role_id)
+        if (editing.role_id !== newRoleId) {
+          const oldRole = roles.find((r) => r.id === editing.role_id)?.name ?? `#${editing.role_id}`
+          const newRole = roles.find((r) => r.id === newRoleId)?.name ?? `#${newRoleId}`
+          const isPrivilege = newRoleId !== Number(roles.find((r) => r.code === 'employee')?.id)
+          const confirmMsg = isPrivilege
+            ? `确认将「${editing.username}」的角色从「${oldRole}」改为「${newRole}」？\n\n${newRole} 角色拥有系统管理/业务管理权限，授予后该账号可执行相应管理操作。\n\n请谨慎确认！`
+            : `确认将「${editing.username}」的角色从「${oldRole}」改为「${newRole}」？`
+          if (!window.confirm(confirmMsg)) {
+            setSaving(false)
+            return
+          }
+        }
         await updateUser(editing.id, {
           full_name: form.full_name,
           email: form.email,
-          role_id: Number(form.role_id),
+          role_id: newRoleId,
         })
         toast.success('用户已更新')
       } else {
