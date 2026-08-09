@@ -14,10 +14,11 @@ var (
 	ErrApprovalFlowCodeInvalid = errors.New("审批流程编码无效")
 	ErrApprovalFlowStepCount   = errors.New("审批步骤数须为 1~5 级")
 	ErrApprovalFlowStepOrder   = errors.New("审批步骤顺序必须从 1 开始且连续")
-	ErrApprovalFlowTypeInvalid = errors.New("审批步骤类型不合法（manager/permission/hr/position）")
+	ErrApprovalFlowTypeInvalid = errors.New("审批步骤类型不合法（manager/role/permission/hr/position）")
 	ErrApprovalFlowPosRefBad   = errors.New("指定岗位审批必须填写有效的岗位 ID")
 	ErrApprovalFlowRefConflict = errors.New("manager/hr 步骤不得填写岗位引用")
-	ErrApprovalFlowPermBad     = errors.New("指定权限审批必须填写有效的审批权限点，且 manager/hr/position 步骤不得填写权限点")
+	ErrApprovalFlowRoleBad     = errors.New("指定角色审批必须填写有效的角色 ID，且 manager/hr/position 步骤不得填写角色 ID")
+	ErrApprovalFlowPermBad     = errors.New("指定权限审批必须填写有效的审批权限点，且 manager/hr/position/role 步骤不得填写权限点")
 )
 
 // validApprovalFlowCodes 可配置的流程编码（与业务申请 bizType 对应）
@@ -26,9 +27,10 @@ var validApprovalFlowCodes = map[string]bool{
 	"attendance_correction": true,
 }
 
-// validApproverTypes 审批步骤合法审批人类型（hr/position 为兼容旧配置保留，新配置建议 manager/permission）
+// validApproverTypes 审批步骤合法审批人类型（hr/position/permission 为兼容旧配置保留，新配置建议 manager/role）
 var validApproverTypes = map[string]bool{
 	"manager":    true,
+	"role":       true,
 	"permission": true,
 	"hr":         true,
 	"position":   true,
@@ -46,6 +48,7 @@ type ApprovalFlowStepInput struct {
 	ApproverType       string `json:"approver_type"`
 	ApproverRef        uint   `json:"approver_ref"`
 	ApproverPermission string `json:"approver_permission"` // 审批权限点 code，approver_type=permission 时必填
+	ApproverRoleID     uint   `json:"approver_role_id"`    // 审批角色 ID，approver_type=role 时必填
 	Name               string `json:"name"`
 }
 
@@ -55,10 +58,16 @@ type UpdateApprovalFlowRequest struct {
 	Steps []ApprovalFlowStepInput `json:"steps"`
 }
 
+// ApprovalStepDetail 审批步骤详情（含审批角色名称，供前端角色池下拉展示）
+type ApprovalStepDetail struct {
+	models.ApprovalStep
+	ApproverRoleName string `json:"approver_role_name"` // 审批角色名称，approver_type=role 时 JOIN roles 带出
+}
+
 // ApprovalFlowDetail 审批流程详情（含步骤，按 step_order 升序）
 type ApprovalFlowDetail struct {
 	models.ApprovalFlow
-	Steps []models.ApprovalStep `json:"steps"`
+	Steps []ApprovalStepDetail `json:"steps"`
 }
 
 // ListApprovalFlows 查询所有审批流程及步骤（admin 流程配置页用）
@@ -69,8 +78,8 @@ func ListApprovalFlows(db *gorm.DB) ([]ApprovalFlowDetail, error) {
 	}
 	details := make([]ApprovalFlowDetail, 0, len(flows))
 	for i := range flows {
-		var steps []models.ApprovalStep
-		if err := db.Where("flow_id = ?", flows[i].ID).Order("step_order ASC").Find(&steps).Error; err != nil {
+		steps, err := loadFlowSteps(db, flows[i].ID)
+		if err != nil {
 			return nil, err
 		}
 		details = append(details, ApprovalFlowDetail{ApprovalFlow: flows[i], Steps: steps})
@@ -112,6 +121,7 @@ func UpdateApprovalFlow(db *gorm.DB, code string, req UpdateApprovalFlowRequest)
 				ApproverType:       st.ApproverType,
 				ApproverRef:        st.ApproverRef,
 				ApproverPermission: st.ApproverPermission,
+				ApproverRoleID:     st.ApproverRoleID,
 				Name:               st.Name,
 			}
 			if err := tx.Create(&step).Error; err != nil {
@@ -175,23 +185,40 @@ func ListApprovalPermissions(db *gorm.DB) ([]ApprovalPermissionInfo, error) {
 	return infos, nil
 }
 
+// loadFlowSteps 查询流程步骤（JOIN roles 带出审批角色名称），按 step_order 升序
+func loadFlowSteps(db *gorm.DB, flowID uint) ([]ApprovalStepDetail, error) {
+	steps := make([]ApprovalStepDetail, 0)
+	err := db.Table("approval_steps").
+		Select(`approval_steps.*, COALESCE(r.name, '') AS approver_role_name`).
+		Joins("LEFT JOIN roles r ON r.id = approval_steps.approver_role_id").
+		Where("approval_steps.flow_id = ?", flowID).
+		Order("approval_steps.step_order ASC").
+		Scan(&steps).Error
+	if err != nil {
+		return nil, err
+	}
+	return steps, nil
+}
+
 // getApprovalFlowDetail 查询单个流程详情（含步骤）
 func getApprovalFlowDetail(db *gorm.DB, flowID uint) (*ApprovalFlowDetail, error) {
 	var flow models.ApprovalFlow
 	if err := db.First(&flow, flowID).Error; err != nil {
 		return nil, err
 	}
-	var steps []models.ApprovalStep
-	if err := db.Where("flow_id = ?", flowID).Order("step_order ASC").Find(&steps).Error; err != nil {
+	steps, err := loadFlowSteps(db, flowID)
+	if err != nil {
 		return nil, err
 	}
 	return &ApprovalFlowDetail{ApprovalFlow: flow, Steps: steps}, nil
 }
 
 // validateApprovalFlowSteps 校验步骤配置：
-// 1~5 级；step_order 从 1 开始且连续；approver_type ∈ {manager, permission, hr, position}（hr/position 兼容旧配置）；
-// permission 时 approver_permission 必须为合法审批权限点；position 时 approver_ref>0 且岗位存在；
-// manager/hr/position 时 approver_permission 必须为空，manager/hr 时 approver_ref 必须为 0
+// 1~5 级；step_order 从 1 开始且连续；approver_type ∈ {manager, role, permission, hr, position}（hr/position/permission 兼容旧配置）；
+// role 时 approver_role_id>0 且角色存在、approver_permission 为空、approver_ref 为 0；
+// permission 时 approver_permission 必须为合法审批权限点、approver_ref/approver_role_id 为 0；
+// position 时 approver_ref>0 且岗位存在、approver_permission/approver_role_id 为空/0；
+// manager/hr 时 approver_ref/approver_permission/approver_role_id 均为空/0
 func validateApprovalFlowSteps(db *gorm.DB, req UpdateApprovalFlowRequest) error {
 	n := len(req.Steps)
 	if n < 1 || n > 5 {
@@ -205,12 +232,29 @@ func validateApprovalFlowSteps(db *gorm.DB, req UpdateApprovalFlowRequest) error
 			return ErrApprovalFlowTypeInvalid
 		}
 		switch st.ApproverType {
+		case "role":
+			if st.ApproverRoleID == 0 {
+				return ErrApprovalFlowRoleBad
+			}
+			var role models.Role
+			if err := db.First(&role, st.ApproverRoleID).Error; err != nil {
+				return ErrApprovalFlowRoleBad
+			}
+			if st.ApproverPermission != "" {
+				return ErrApprovalFlowPermBad
+			}
+			if st.ApproverRef != 0 {
+				return ErrApprovalFlowRefConflict
+			}
 		case "permission":
 			if !validApprovalPermissions[st.ApproverPermission] {
 				return ErrApprovalFlowPermBad
 			}
 			if st.ApproverRef != 0 {
 				return ErrApprovalFlowRefConflict
+			}
+			if st.ApproverRoleID != 0 {
+				return ErrApprovalFlowRoleBad
 			}
 		case "position":
 			if st.ApproverRef == 0 {
@@ -223,12 +267,18 @@ func validateApprovalFlowSteps(db *gorm.DB, req UpdateApprovalFlowRequest) error
 			if st.ApproverPermission != "" {
 				return ErrApprovalFlowPermBad
 			}
+			if st.ApproverRoleID != 0 {
+				return ErrApprovalFlowRoleBad
+			}
 		default:
 			if st.ApproverRef != 0 {
 				return ErrApprovalFlowRefConflict
 			}
 			if st.ApproverPermission != "" {
 				return ErrApprovalFlowPermBad
+			}
+			if st.ApproverRoleID != 0 {
+				return ErrApprovalFlowRoleBad
 			}
 		}
 	}

@@ -66,6 +66,7 @@ func (h *ApprovalAdmin) handleError(c *gin.Context, err error) {
 		errors.Is(err, service.ErrApprovalFlowTypeInvalid),
 		errors.Is(err, service.ErrApprovalFlowPosRefBad),
 		errors.Is(err, service.ErrApprovalFlowRefConflict),
+		errors.Is(err, service.ErrApprovalFlowRoleBad),
 		errors.Is(err, service.ErrApprovalFlowPermBad):
 		response.Error(c, http.StatusBadRequest, 400, err.Error())
 	default:

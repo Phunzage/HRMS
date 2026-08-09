@@ -41,8 +41,13 @@ func Seed(db *gorm.DB) error {
 	return seedApprovalFlows(db)
 }
 
-// seedApprovalFlows 写入审批流程定义（固定两级：部门经理 → HR 终审），幂等
+// seedApprovalFlows 写入审批流程定义（固定两级：部门经理递归解析 → 指定 hr 角色池终审），幂等
+// 步骤2 使用 role 类型（hr 角色池）：该角色所有启用用户可审批，admin 配置页面可再调整
 func seedApprovalFlows(db *gorm.DB) error {
+	var hrRole models.Role
+	if err := db.Where("code = ?", "hr").First(&hrRole).Error; err != nil {
+		return fmt.Errorf("查询 hr 角色失败: %w", err)
+	}
 	flows := []struct {
 		code  string
 		name  string
@@ -53,7 +58,7 @@ func seedApprovalFlows(db *gorm.DB) error {
 			name: "请假审批",
 			steps: []models.ApprovalStep{
 				{StepOrder: 1, ApproverType: "manager", Name: "部门经理审批"},
-				{StepOrder: 2, ApproverType: "hr", Name: "HR终审"},
+				{StepOrder: 2, ApproverType: "role", ApproverRoleID: hrRole.ID, Name: "HR终审"},
 			},
 		},
 		{
@@ -61,7 +66,7 @@ func seedApprovalFlows(db *gorm.DB) error {
 			name: "补卡审批",
 			steps: []models.ApprovalStep{
 				{StepOrder: 1, ApproverType: "manager", Name: "部门经理审批"},
-				{StepOrder: 2, ApproverType: "hr", Name: "HR终审"},
+				{StepOrder: 2, ApproverType: "role", ApproverRoleID: hrRole.ID, Name: "HR终审"},
 			},
 		},
 	}

@@ -21,6 +21,15 @@ func (r *NotificationRepo) Create(n *models.Notification) error {
 	return r.db.Create(n).Error
 }
 
+// UserEnabled 查询系统账号是否启用（status=1）；账号不存在或查询失败返回 false
+func (r *NotificationRepo) UserEnabled(userID uint) bool {
+	var user models.User
+	if err := r.db.Select("status").First(&user, userID).Error; err != nil {
+		return false
+	}
+	return user.Status == 1
+}
+
 // FindByID 根据 ID 查询通知
 func (r *NotificationRepo) FindByID(id uint) (*models.Notification, error) {
 	var n models.Notification

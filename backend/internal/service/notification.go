@@ -35,9 +35,13 @@ func NewNotificationService(repo *repository.NotificationRepo, empRepo *reposito
 	return &NotificationService{repo: repo, empRepo: empRepo}
 }
 
-// Send 创建通知（供其他服务调用）；userID 为 0 时静默跳过
+// Send 创建通知（供其他服务调用）；userID 为 0 或账号已禁用（status=0）时静默跳过
 func (s *NotificationService) Send(userID uint, ntype, title, content, link string) error {
 	if userID == 0 {
+		return nil
+	}
+	// 账号禁用时不推送（池广播已按 status=1 过滤，直接指派的审批人需在此兜底）
+	if !s.repo.UserEnabled(userID) {
 		return nil
 	}
 	return s.repo.Create(&models.Notification{
