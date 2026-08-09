@@ -306,7 +306,7 @@ func ListMyTasks(db *gorm.DB, userID uint, status string) ([]TaskItem, error) {
 	if err != nil {
 		return nil, err
 	}
-	isHR := roleCode == "hr" || roleCode == "admin"
+	isHR := roleCode == "hr"
 
 	q := db.Table("approval_tasks").
 		Select(`approval_tasks.*, ai.biz_type, ai.biz_id, ai.status AS instance_status,
@@ -322,7 +322,7 @@ func ListMyTasks(db *gorm.DB, userID uint, status string) ([]TaskItem, error) {
 		Joins("LEFT JOIN departments d ON d.id = e.department_id")
 
 	if isHR {
-		// hr/admin：自己名下的任务 + HR 池任务（approver_type=hr 且未指派）
+		// hr：自己名下的任务 + HR 池任务（approver_type=hr 且未指派）；admin 待办不出现业务审批
 		q = q.Where("(approval_tasks.approver_id = ? OR (approval_tasks.approver_type = 'hr' AND approval_tasks.approver_id IS NULL))", userID)
 	} else {
 		q = q.Where("approval_tasks.approver_id = ?", userID)
@@ -351,13 +351,13 @@ func ListMyTasks(db *gorm.DB, userID uint, status string) ([]TaskItem, error) {
 }
 
 // CountMyPendingTasks 当前用户待审批任务数（导航栏角标用）：
-// 与 ListMyTasks 的归属口径一致——ApproverID 匹配，或 hr/admin 可认领的 HR 池任务（approver_type=hr 且未指派）
+// 与 ListMyTasks 的归属口径一致——ApproverID 匹配，或 hr 可认领的 HR 池任务（approver_type=hr 且未指派）；admin 不计入业务审批
 func CountMyPendingTasks(db *gorm.DB, userID uint) (int64, error) {
 	roleCode, err := getUserRoleCode(db, userID)
 	if err != nil {
 		return 0, err
 	}
-	isHR := roleCode == "hr" || roleCode == "admin"
+	isHR := roleCode == "hr"
 
 	q := db.Model(&models.ApprovalTask{}).
 		Joins("JOIN approval_instances ai ON ai.id = approval_tasks.instance_id").
@@ -509,7 +509,7 @@ func loadPendingInstance(tx *gorm.DB, instanceID uint) (*models.ApprovalInstance
 }
 
 // checkTaskApprover 审批权限校验：ApproverID 匹配优先；
-// HR 池任务（approver_type=hr 且 ApproverID 为空）允许任意 hr/admin 审批
+// HR 池任务（approver_type=hr 且 ApproverID 为空）仅允许 hr 角色审批，admin 不再放行（admin 专注系统管理）
 func checkTaskApprover(tx *gorm.DB, task *models.ApprovalTask, approverUserID uint) error {
 	if task.ApproverID != nil && *task.ApproverID == approverUserID {
 		return nil
@@ -519,7 +519,7 @@ func checkTaskApprover(tx *gorm.DB, task *models.ApprovalTask, approverUserID ui
 		if err != nil {
 			return err
 		}
-		if roleCode == "hr" || roleCode == "admin" {
+		if roleCode == "hr" {
 			return nil
 		}
 	}
@@ -540,7 +540,7 @@ func getUserRoleCode(db *gorm.DB, userID uint) (string, error) {
 }
 
 // resolveStepApproverUserID 解析某步骤的审批人用户 ID
-// manager：申请人的部门经理（无则兜底任意 hr/admin）；hr：留空由任一 hr/admin 审批
+// manager：申请人的部门经理（无则兜底任意 hr）；hr：留空由任一 hr 审批（admin 不参与业务审批）
 func resolveStepApproverUserID(tx *gorm.DB, inst *models.ApprovalInstance, step *models.ApprovalStep) (*uint, error) {
 	if step.ApproverType == "hr" {
 		return nil, nil

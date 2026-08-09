@@ -392,3 +392,106 @@ func TestListMyTasks(t *testing.T) {
 		t.Fatalf("期望 HR 1 条已通过历史，实际 %d", len(hrItems))
 	}
 }
+
+// TestApprovalHRPoolAdminDenied admin 无权审批 HR 池任务（HR 池仅 hr 角色可审批，admin 专注系统管理）
+func TestApprovalHRPoolAdminDenied(t *testing.T) {
+	db := mustTestDB(t)
+	tx := db.Begin()
+	defer tx.Rollback()
+	fx := setupLeaveFixture(t, tx)
+	svc := newLeaveSvc(tx)
+
+	adminUser, err := createTestUser(tx, uniqueStr("adm"), "pass123456", "admin", nil, 1)
+	if err != nil {
+		t.Fatalf("创建 admin 账号失败: %v", err)
+	}
+
+	start, end := dateRange(2)
+	leave, err := svc.Create(fx.EmpUserID, SubmitLeaveRequest{
+		LeaveType: "annual", StartDate: start, EndDate: end, Reason: "admin越权审批",
+	})
+	if err != nil {
+		t.Fatalf("提交请假失败: %v", err)
+	}
+	inst, err := GetInstanceByBiz(tx, "leave", leave.ID)
+	if err != nil {
+		t.Fatalf("查询审批实例失败: %v", err)
+	}
+	// 经理通过 → 推进至步骤2（HR 池）
+	inst = approveTask(t, tx, svc, stepTask(t, tx, inst, 1).ID, fx.ManagerUserID)
+	task2 := stepTask(t, tx, inst, 2)
+	if task2.ApproverType != "hr" || task2.ApproverID != nil {
+		t.Fatalf("期望步骤2为未指派的 HR 池任务，实际 type=%s approver=%v", task2.ApproverType, task2.ApproverID)
+	}
+
+	// admin 审批 HR 池任务 → 拒绝
+	if _, err := ApproveTask(tx, task2.ID, adminUser.ID, "越权"); !errors.Is(err, ErrApprovalNotAllowed) {
+		t.Fatalf("期望 ErrApprovalNotAllowed，实际: %v", err)
+	}
+	// admin 驳回 HR 池任务 → 拒绝
+	if err := RejectTask(tx, task2.ID, adminUser.ID, "越权"); !errors.Is(err, ErrApprovalNotAllowed) {
+		t.Fatalf("期望 Reject ErrApprovalNotAllowed，实际: %v", err)
+	}
+	// hr 仍可正常审批
+	inst = approveTask(t, tx, svc, task2.ID, fx.HRUserID)
+	if inst.Status != "approved" {
+		t.Errorf("期望实例 approved，实际 %s", inst.Status)
+	}
+}
+
+// TestListMyTasksAdminNoHRPool admin 待办列表不出现 HR 池任务；hr 仍可见并可审批
+func TestListMyTasksAdminNoHRPool(t *testing.T) {
+	db := mustTestDB(t)
+	tx := db.Begin()
+	defer tx.Rollback()
+	fx := setupLeaveFixture(t, tx)
+	svc := newLeaveSvc(tx)
+
+	adminUser, err := createTestUser(tx, uniqueStr("adm"), "pass123456", "admin", nil, 1)
+	if err != nil {
+		t.Fatalf("创建 admin 账号失败: %v", err)
+	}
+
+	start, end := dateRange(2)
+	leave, err := svc.Create(fx.EmpUserID, SubmitLeaveRequest{
+		LeaveType: "annual", StartDate: start, EndDate: end, Reason: "admin待办列表",
+	})
+	if err != nil {
+		t.Fatalf("提交请假失败: %v", err)
+	}
+	inst, err := GetInstanceByBiz(tx, "leave", leave.ID)
+	if err != nil {
+		t.Fatalf("查询审批实例失败: %v", err)
+	}
+	// 经理通过 → HR 池任务产生
+	inst = approveTask(t, tx, svc, stepTask(t, tx, inst, 1).ID, fx.ManagerUserID)
+
+	// admin 待办列表不应看到 HR 池任务
+	adminItems, err := ListMyTasks(tx, adminUser.ID, "pending")
+	if err != nil {
+		t.Fatalf("查询 admin 待办失败: %v", err)
+	}
+	if len(adminItems) != 0 {
+		t.Fatalf("期望 admin 0 条待办，实际 %d", len(adminItems))
+	}
+	// admin 角标计数同样为 0
+	cnt, err := CountMyPendingTasks(tx, adminUser.ID)
+	if err != nil {
+		t.Fatalf("查询 admin 待办计数失败: %v", err)
+	}
+	if cnt != 0 {
+		t.Fatalf("期望 admin 待办计数 0，实际 %d", cnt)
+	}
+	// hr 仍可见 HR 池任务并可审批
+	hrItems, err := ListMyTasks(tx, fx.HRUserID, "pending")
+	if err != nil {
+		t.Fatalf("查询 hr 待办失败: %v", err)
+	}
+	if len(hrItems) != 1 {
+		t.Fatalf("期望 hr 1 条待办，实际 %d", len(hrItems))
+	}
+	inst = approveTask(t, tx, svc, hrItems[0].ID, fx.HRUserID)
+	if inst.Status != "approved" {
+		t.Errorf("期望 hr 审批后实例 approved，实际 %s", inst.Status)
+	}
+}

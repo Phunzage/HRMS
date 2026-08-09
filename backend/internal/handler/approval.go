@@ -16,7 +16,7 @@ import (
 )
 
 // Approval 通用审批处理器
-// 权限靠任务归属校验（ApproverID==当前用户，或 hr 类型步骤由 hr/admin 审批），无独立权限点
+// 权限靠任务归属校验（ApproverID==当前用户，或 hr 类型步骤由 hr 角色审批，admin 不参与业务审批），无独立权限点
 type Approval struct {
 	db        *gorm.DB
 	callbacks map[string]service.ApprovalBizCallback // bizType → 终审回调

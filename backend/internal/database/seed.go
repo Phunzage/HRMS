@@ -159,17 +159,15 @@ func seedPermissions(db *gorm.DB) error {
 // seedRolePermissions 写入角色-权限关联（admin 不再直接放行，统一查 role_permissions，保证业务只读生效）
 func seedRolePermissions(db *gorm.DB) error {
 	rolePerms := map[string][]string{
-		// admin = 系统管理员：只管系统配置（用户/角色/审计）与业务只读监督，不含任何业务写权限
+		// admin = 系统管理员：专注系统管理（用户/角色/审计），仅保留公告与仪表盘监督，不含任何业务权限（连只读也无）
 		"admin": {
-			"employee:read", "department:read", "position:read",
-			"attendance:read", "leave:read", "salary:read",
-			"recruitment:read", "performance:read", "announcement:read",
-			"dashboard:read",
 			"user:read", "user:write",
 			"role:read", "role:write",
 			"audit:read",
+			"dashboard:read",
+			"announcement:read", "announcement:write",
 		},
-		// hr = 业务管理员：负责人事业务读写，不再有用户/角色/审计管理权限
+		// hr = 业务管理员：全公司口径，负责人事业务读写（含公告），不再有用户/角色/审计管理权限
 		"hr": {
 			"employee:read", "employee:write",
 			"department:read", "department:write",
@@ -237,6 +235,7 @@ func seedRolePermissions(db *gorm.DB) error {
 }
 
 // seedUsers 写入内置账号（bcrypt 哈希存储，幂等）
+// 数据范围：hr 角色账号默认不设置 dept_scope_id（NULL = 全公司口径，负责整个公司人力资源）
 func seedUsers(db *gorm.DB) (map[string]uint, error) {
 	accounts := []struct {
 		username string
