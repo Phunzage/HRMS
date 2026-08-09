@@ -3,8 +3,11 @@ import { Plus, Trash2, Workflow } from 'lucide-react'
 import {
   listApprovalFlows,
   updateApprovalFlow,
+  NEW_APPROVER_TYPES,
+  APPROVAL_PERMISSION_LABELS,
   APPROVER_TYPE_LABEL,
   type ApprovalFlowItem,
+  type ApprovalPermission,
   type ApprovalStepItem,
 } from '../api/approvalFlow'
 import { fetchAllPositions, type Position } from '../api/employee'
@@ -12,9 +15,10 @@ import { useAuthStore } from '../store/auth'
 import { toast } from '../store/toast'
 import Modal from '../components/Modal'
 
-// 审批人类型 → 展示 badge 配色（部门经理=info / HR终审=primary / 指定岗位=warning）
+// 审批人类型 → 展示 badge 配色（部门经理=info / 按权限=primary / HR终审=primary / 指定岗位=warning）
 const TYPE_BADGE: Record<ApprovalStepItem['approver_type'], string> = {
   manager: 'badge-info',
+  permission: 'badge-primary',
   hr: 'badge-primary',
   position: 'badge-warning',
 }
@@ -25,7 +29,7 @@ interface StepDraft extends ApprovalStepItem {
   nameEdited: boolean
 }
 
-// 生成某类型的默认步骤名（类型选择后自动填充，用户可改）
+// 生成某类型的默认步骤名（类型选择后自动填充，用户可改；permission 由权限点决定，另行处理）
 function defaultName(type: ApprovalStepItem['approver_type'], positionName = '') {
   switch (type) {
     case 'manager':
@@ -34,7 +38,14 @@ function defaultName(type: ApprovalStepItem['approver_type'], positionName = '')
       return 'HR 终审'
     case 'position':
       return positionName ? `${positionName}审批` : ''
+    case 'permission':
+      return ''
   }
+}
+
+// 当前流程的建议审批权限点（请假流程→请假审批，补卡流程→补卡审批）
+function defaultPermission(flowCode?: string) {
+  return flowCode === 'attendance_correction' ? 'attendance_correction:approve' : 'leave:approve'
 }
 
 export default function ApprovalFlowsPage() {
@@ -42,6 +53,7 @@ export default function ApprovalFlowsPage() {
   const isAdmin = role === 'admin'
 
   const [flows, setFlows] = useState<ApprovalFlowItem[]>([])
+  const [approvalPerms, setApprovalPerms] = useState<ApprovalPermission[]>([])
   const [positions, setPositions] = useState<Position[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -53,6 +65,13 @@ export default function ApprovalFlowsPage() {
   const [draftSteps, setDraftSteps] = useState<StepDraft[]>([])
   const [saving, setSaving] = useState(false)
   const keyRef = useRef(0)
+
+  // 权限点 code → 名称（优先后端 approval_permissions，缺省走本地常量）
+  const permissionName = (code: string) =>
+    approvalPerms.find((p) => p.code === code)?.name ?? APPROVAL_PERMISSION_LABELS[code] ?? code
+
+  // 权限点 code → 拥有该权限的角色列表
+  const permissionRoles = (code: string) => approvalPerms.find((p) => p.code === code)?.roles ?? []
 
   // 岗位列表（编辑 Modal 岗位下拉用，仅拉一次）
   useEffect(() => {
@@ -67,7 +86,7 @@ export default function ApprovalFlowsPage() {
     }
   }, [])
 
-  // 审批流程列表
+  // 审批流程列表 + 审批权限点
   useEffect(() => {
     if (!isAdmin) return
     let cancelled = false
@@ -75,7 +94,10 @@ export default function ApprovalFlowsPage() {
     setError('')
     listApprovalFlows()
       .then((res) => {
-        if (!cancelled) setFlows(res ?? [])
+        if (!cancelled) {
+          setFlows(res.list ?? [])
+          setApprovalPerms(res.approval_permissions ?? [])
+        }
       })
       .catch((err: unknown) => {
         if (!cancelled) setError(err instanceof Error ? err.message : '获取审批流程失败')
@@ -103,7 +125,7 @@ export default function ApprovalFlowsPage() {
     if (draftSteps.length >= 5) return // 后端限制 1~5 级
     setDraftSteps((steps) => [
       ...steps,
-      { key: ++keyRef.current, step_order: steps.length + 1, approver_type: 'manager', approver_ref: 0, name: '部门经理审批', nameEdited: false },
+      { key: ++keyRef.current, step_order: steps.length + 1, approver_type: 'manager', approver_ref: 0, approver_permission: '', name: '部门经理审批', nameEdited: false },
     ])
   }
 
@@ -119,18 +141,45 @@ export default function ApprovalFlowsPage() {
     setDraftSteps((steps) => steps.map((s) => (s.key === key ? { ...s, ...patch } : s)))
   }
 
-  // 切换审批人类型：自动填充默认步骤名；非指定岗位清空岗位引用
+  // 切换审批人类型：permission 自动建议当前流程对应的权限点并填充步骤名；
+  // 非 permission 清空权限点；非指定岗位清空岗位引用
   const handleTypeChange = (key: number, type: StepDraft['approver_type']) => {
     setDraftSteps((steps) =>
       steps.map((s) => {
         if (s.key !== key) return s
         const position = positions.find((p) => p.id === s.approver_ref)
+        if (type === 'permission') {
+          const perm = s.approver_permission || defaultPermission(editingFlow?.code)
+          return {
+            ...s,
+            approver_type: type,
+            approver_ref: 0,
+            approver_permission: perm,
+            name: s.nameEdited ? s.name : permissionName(perm) || '权限审批',
+            nameEdited: false,
+          }
+        }
         return {
           ...s,
           approver_type: type,
           approver_ref: type === 'position' ? s.approver_ref : 0,
+          approver_permission: '',
           name: defaultName(type, position?.name),
           nameEdited: false,
+        }
+      }),
+    )
+  }
+
+  // 选择审批权限点：未手动改过名称时自动填充「{权限名}」
+  const handlePermissionChange = (key: number, code: string) => {
+    setDraftSteps((steps) =>
+      steps.map((s) => {
+        if (s.key !== key) return s
+        return {
+          ...s,
+          approver_permission: code,
+          name: s.nameEdited ? s.name : permissionName(code) || '权限审批',
         }
       }),
     )
@@ -150,7 +199,7 @@ export default function ApprovalFlowsPage() {
 
   const handleSave = async () => {
     if (!editingFlow) return
-    // 前端校验：步骤名非空；指定岗位必须已选岗位
+    // 前端校验：步骤名非空；指定岗位必须已选岗位；按权限审批必须已选权限点
     for (const s of draftSteps) {
       if (!s.name.trim()) {
         toast.error(`第 ${s.step_order} 级步骤名称不能为空`)
@@ -160,15 +209,20 @@ export default function ApprovalFlowsPage() {
         toast.error(`第 ${s.step_order} 级（指定岗位）请选择岗位`)
         return
       }
+      if (s.approver_type === 'permission' && !s.approver_permission) {
+        toast.error(`第 ${s.step_order} 级（按权限审批）请选择审批权限`)
+        return
+      }
     }
     setSaving(true)
     try {
       await updateApprovalFlow(editingFlow.code, {
         name: editingFlow.name,
-        steps: draftSteps.map(({ step_order, approver_type, approver_ref, name }) => ({
+        steps: draftSteps.map(({ step_order, approver_type, approver_ref, approver_permission, name }) => ({
           step_order,
           approver_type,
           approver_ref,
+          approver_permission,
           name,
         })),
       })
@@ -191,6 +245,18 @@ export default function ApprovalFlowsPage() {
         </div>
       </div>
     )
+  }
+
+  // 步骤卡片：审批人类型 badge 文案（permission 显示「按权限·权限名」）
+  const stepTypeLabel = (s: ApprovalStepItem) =>
+    s.approver_type === 'permission' ? `按权限·${permissionName(s.approver_permission)}` : APPROVER_TYPE_LABEL[s.approver_type]
+
+  // permission 步骤可审批角色文案（如「人事、经理 可审批」）
+  const stepRolesText = (s: ApprovalStepItem) => {
+    if (s.approver_type !== 'permission') return ''
+    return permissionRoles(s.approver_permission)
+      .map((r) => r.name)
+      .join('、')
   }
 
   return (
@@ -237,17 +303,24 @@ export default function ApprovalFlowsPage() {
                     {flow.steps.map((s) => (
                       <li
                         key={s.id ?? `${flow.code}-${s.step_order}`}
-                        className="flex items-center gap-2 rounded-box border border-base-200 px-3 py-2"
+                        className="rounded-box border border-base-200 px-3 py-2"
                       >
-                        <span className="badge badge-ghost badge-sm">{s.step_order}</span>
-                        <span className="text-sm font-medium">{s.name}</span>
-                        <span className={`badge badge-sm ${TYPE_BADGE[s.approver_type]}`}>
-                          {APPROVER_TYPE_LABEL[s.approver_type]}
-                        </span>
-                        {s.approver_type === 'position' && positionName(s.approver_ref) && (
-                          <span className="text-xs text-base-content/50">
-                            （{positionName(s.approver_ref)}）
+                        <div className="flex items-center gap-2">
+                          <span className="badge badge-ghost badge-sm">{s.step_order}</span>
+                          <span className="text-sm font-medium">{s.name}</span>
+                          <span className={`badge badge-sm ${TYPE_BADGE[s.approver_type]}`}>
+                            {stepTypeLabel(s)}
                           </span>
+                          {s.approver_type === 'position' && positionName(s.approver_ref) && (
+                            <span className="text-xs text-base-content/50">
+                              （{positionName(s.approver_ref)}）
+                            </span>
+                          )}
+                        </div>
+                        {s.approver_type === 'permission' && (
+                          <div className="mt-1 text-xs text-base-content/50">
+                            {stepRolesText(s) ? `${stepRolesText(s)} 可审批` : '暂无角色拥有该权限'}
+                          </div>
                         )}
                       </li>
                     ))}
@@ -282,7 +355,7 @@ export default function ApprovalFlowsPage() {
       >
         <div className="flex flex-col gap-3">
           {/* 列头说明 */}
-          <div className="grid grid-cols-[2.5rem_1fr_8rem_2.5rem] items-center gap-2 px-1 text-xs text-base-content/50">
+          <div className="grid grid-cols-[2.5rem_1fr_9rem_2.5rem] items-center gap-2 px-1 text-xs text-base-content/50">
             <span>序号</span>
             <span>步骤名称</span>
             <span>审批人</span>
@@ -291,7 +364,7 @@ export default function ApprovalFlowsPage() {
 
           {draftSteps.map((s) => (
             <div key={s.key} className="rounded-box border border-base-300 p-2">
-              <div className="grid grid-cols-[2.5rem_1fr_8rem_2.5rem] items-center gap-2">
+              <div className="grid grid-cols-[2.5rem_1fr_9rem_2.5rem] items-center gap-2">
                 <span className="badge badge-ghost justify-center">{s.step_order}</span>
                 <input
                   type="text"
@@ -305,7 +378,11 @@ export default function ApprovalFlowsPage() {
                   value={s.approver_type}
                   onChange={(e) => handleTypeChange(s.key, e.target.value as StepDraft['approver_type'])}
                 >
-                  {(Object.keys(APPROVER_TYPE_LABEL) as ApprovalStepItem['approver_type'][]).map((t) => (
+                  {/* 新配置仅 manager/permission；旧 hr/position 步骤保留当前选项以便展示 */}
+                  {(s.approver_type === 'hr' || s.approver_type === 'position'
+                    ? [...NEW_APPROVER_TYPES, s.approver_type]
+                    : NEW_APPROVER_TYPES
+                  ).map((t) => (
                     <option key={t} value={t}>
                       {APPROVER_TYPE_LABEL[t]}
                     </option>
@@ -322,6 +399,36 @@ export default function ApprovalFlowsPage() {
                 </button>
               </div>
 
+              {/* 按权限审批：权限点下拉 + 可审批角色 badge */}
+              {s.approver_type === 'permission' && (
+                <div className="mt-2 flex flex-col gap-1.5">
+                  <select
+                    className="select select-bordered select-sm w-full"
+                    value={s.approver_permission}
+                    onChange={(e) => handlePermissionChange(s.key, e.target.value)}
+                  >
+                    <option value="">请选择审批权限</option>
+                    {approvalPerms.map((p) => (
+                      <option key={p.code} value={p.code}>
+                        {p.name}
+                      </option>
+                    ))}
+                  </select>
+                  <div className="flex flex-wrap items-center gap-1 text-xs text-base-content/60">
+                    <span>可审批角色：</span>
+                    {permissionRoles(s.approver_permission).length > 0 ? (
+                      permissionRoles(s.approver_permission).map((r) => (
+                        <span key={r.id} className="badge badge-sm badge-ghost">
+                          {r.name}
+                        </span>
+                      ))
+                    ) : (
+                      <span className="text-base-content/40">暂无角色拥有该权限</span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {/* 仅指定岗位时显示岗位下拉 */}
               {s.approver_type === 'position' && (
                 <select
@@ -336,6 +443,11 @@ export default function ApprovalFlowsPage() {
                     </option>
                   ))}
                 </select>
+              )}
+
+              {/* 旧类型兼容提示 */}
+              {(s.approver_type === 'hr' || s.approver_type === 'position') && (
+                <div className="mt-1 text-xs text-warning">旧类型，建议迁移为「按权限审批」</div>
               )}
             </div>
           ))}

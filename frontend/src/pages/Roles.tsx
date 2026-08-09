@@ -14,12 +14,13 @@ import { toast } from '../store/toast'
 import Modal from '../components/Modal'
 import Field from '../components/FormField'
 
-// 模块编码 → 中文分组名（组织/人事/考勤/请假/薪酬/招聘/系统 归组展示）
+// 模块编码 → 中文分组名（组织/人事/考勤/审批/请假/薪酬/招聘/系统 归组展示）
 const MODULE_LABELS: Record<string, string> = {
   department: '组织架构',
   position: '组织架构',
   employee: '人事管理',
   attendance: '考勤管理',
+  approval: '审批',
   leave: '请假管理',
   salary: '薪酬管理',
   recruitment: '招聘管理',
@@ -30,7 +31,7 @@ const MODULE_LABELS: Record<string, string> = {
 }
 
 // 分组展示顺序
-const MODULE_ORDER = ['组织架构', '人事管理', '考勤管理', '请假管理', '薪酬管理', '招聘管理', '系统管理']
+const MODULE_ORDER = ['组织架构', '人事管理', '考勤管理', '审批', '请假管理', '薪酬管理', '招聘管理', '系统管理']
 
 // 将后端按模块编码返回的分组，合并为按中文分组的展示结构
 function buildGroups(groups: PermissionGroup[]) {

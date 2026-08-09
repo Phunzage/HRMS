@@ -47,8 +47,8 @@ export default function AttendancePage() {
   const role = user?.role_code
   // 补录/编辑/删除仅 hr（admin 只读监督）
   const canManage = role === 'hr'
-  // 员工筛选下拉为只读功能，admin 仍可浏览过滤
-  const canFilter = role === 'admin' || role === 'hr'
+  // 员工筛选下拉：admin/hr/manager 可浏览过滤；employee 仅本人（后端已强制过滤，前端隐藏下拉）
+  const canFilter = role === 'admin' || role === 'hr' || role === 'manager'
   // 打卡自助需关联员工档案
   const canCheck = !!user?.employee_id
   // 考勤月报仅 admin/hr/manager 可见
