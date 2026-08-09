@@ -1,0 +1,11 @@
+
+
+DevTools listening on ws://127.0.0.1:9222/devtools/browser/24443a5c-296d-4e24-b8ed-1eed84b8b006
+[main] isPackaged= true WEB_INDEX= C:\Users\Phunzage\Documents\Code\HRMS\desktop\dist\win-unpacked\resources\app.asar\build-web\index.html
+[updater] API_BASE=http://115.29.197.130，当前版本 v1.0.0 (build 0)，5 秒后首次检查
+[did-navigate] file:///C:/Users/Phunzage/Documents/Code/HRMS/desktop/dist/win-unpacked/resources/app.asar/build-web/index.html
+[did-finish-load] file:///C:/Users/Phunzage/Documents/Code/HRMS/desktop/dist/win-unpacked/resources/app.asar/build-web/index.html
+[did-navigate-in-page] file:///C:/Users/Phunzage/Documents/Code/HRMS/desktop/dist/win-unpacked/resources/app.asar/build-web/index.html
+[did-navigate-in-page] file:///C:/
+[did-navigate-in-page] file:///C:/
+[updater] 本次检查完成，下次更新检查约 43 分钟后（2026/8/9 22:45:14）

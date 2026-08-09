@@ -1,0 +1,6 @@
+
+
+DevTools listening on ws://127.0.0.1:9222/devtools/browser/db3280a3-0090-453b-9c87-0e860b6aa934
+[main] isPackaged= true __dirname= C:\Users\Phunzage\Documents\Code\HRMS\desktop\dist\win-unpacked\resources\app.asar\electron WEB_INDEX= C:\Users\Phunzage\Documents\Code\HRMS\desktop\dist\win-unpacked\resources\app.asar\build-web\index.html
+[updater] API_BASE=http://115.29.197.130，当前版本 v1.0.0 (build 0)，5 秒后首次检查
+[updater] 本次检查完成，下次更新检查约 45 分钟后（2026/8/9 22:43:21）

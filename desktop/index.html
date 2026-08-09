@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HRMS 人力资源管理系统</title>
+    <script type="module" crossorigin src="/assets/index-BPju7XqC.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-BEoz28hW.css">
+  </head>
+  <body>
+    <div id="root"></div>
+    <!-- 桌面端更新提示条（最小侵入）：仅 Electron 存在 window.hrmsUpdater 时生效，
+         浏览器环境自动忽略。右下角提示「发现新版本 → 点击下载」，点击后下载并打开所在目录。 -->
+    <script>
+      if (window.hrmsUpdater) {
+        var updater = window.hrmsUpdater
+        var bar = null
+        var hideTimer = null
+        function ensureBar() {
+          if (bar) return bar
+          bar = document.createElement('div')
+          bar.style.cssText =
+            'position:fixed;right:16px;bottom:16px;z-index:99999;' +
+            'background:#1d4ed8;color:#fff;padding:12px 18px;border-radius:8px;' +
+            'font-size:14px;line-height:1.5;box-shadow:0 4px 16px rgba(0,0,0,.25);' +
+            'cursor:pointer;display:none;font-family:system-ui,sans-serif;max-width:340px;'
+          bar.addEventListener('click', function () {
+            updater.downloadUpdate()
+          })
+          document.body.appendChild(bar)
+          return bar
+        }
+        function show(text, timeout) {
+          var el = ensureBar()
+          el.textContent = text
+          el.style.display = 'block'
+          if (hideTimer) clearTimeout(hideTimer)
+          if (timeout) hideTimer = setTimeout(function () { el.style.display = 'none' }, timeout)
+        }
+        updater.onUpdateStatus(function (data) {
+          if (!data || !data.status) return
+          if (data.status === 'update-available') {
+            show('发现新版本 v' + data.version + '，点击下载')
+          } else if (data.status === 'downloading') {
+            show('正在下载更新' + (data.percent != null ? ' ' + data.percent + '%' : '…'), 3000)
+          } else if (data.status === 'downloaded') {
+            show('安装包已下载，请运行安装（已打开所在目录）', 8000)
+          } else if (data.status === 'error') {
+            show('更新失败：' + data.message, 8000)
+          } else {
+            if (bar) bar.style.display = 'none'
+          }
+        })
+      }
+    </script>
+  </body>
+</html>

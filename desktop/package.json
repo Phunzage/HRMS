@@ -1,0 +1,51 @@
+{
+  "name": "hrms-desktop",
+  "productName": "HRMS人力资源管理系统",
+  "version": "1.0.0",
+  "description": "HRMS人力资源管理系统 Windows 桌面客户端",
+  "main": "electron/main.js",
+  "author": "HRMS",
+  "license": "MIT",
+  "buildNumber": 1,
+  "scripts": {
+    "dev": "electron .",
+    "dist": "electron-builder --win",
+    "icon": "node scripts/gen-icon.js"
+  },
+  "build": {
+    "appId": "com.hrms.desktop",
+    "productName": "HRMS人力资源管理系统",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "electron/**/*",
+      "build-web/**/*"
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "nsis": {
+      "artifactName": "hrms-desktop Setup ${version}.${ext}",
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "HRMS人力资源管理系统"
+    }
+  },
+  "devDependencies": {
+    "electron": "^33.0.0",
+    "electron-builder": "^25.0.0"
+  }
+}

@@ -24,11 +24,32 @@ declare module 'axios' {
   }
 }
 
-// axios 实例：baseURL /api/v1（开发环境由 vite proxy 转发到 8080）
+// API 基址：开发环境走 vite proxy（空字符串 + /api/v1 → localhost:8080）；
+// 生产/桌面端构建时通过 VITE_API_BASE 注入绝对地址（如 http://115.29.197.130）
+const API_BASE = import.meta.env.VITE_API_BASE || ''
+
+// axios 实例：baseURL /api/v1
 const client = axios.create({
-  baseURL: '/api/v1',
+  baseURL: `${API_BASE}/api/v1`,
   timeout: 15000,
 })
+
+// 桌面端（file:// 加载）下响应里的相对上传路径（/uploads/...）无法直接访问，
+// 配置了绝对 API 基址时递归补全为绝对地址，保证图片/附件在桌面端可显示
+function absolutizeUploads(value: unknown): unknown {
+  if (typeof value === 'string' && value.startsWith('/uploads/')) {
+    return `${API_BASE}${value}`
+  }
+  if (Array.isArray(value)) return value.map(absolutizeUploads)
+  if (value && typeof value === 'object') {
+    for (const key of Object.keys(value)) {
+      ;(value as Record<string, unknown>)[key] = absolutizeUploads(
+        (value as Record<string, unknown>)[key],
+      )
+    }
+  }
+  return value
+}
 
 // 请求拦截器：从 store 取 token，注入 Authorization
 client.interceptors.request.use((config) => {
@@ -48,11 +69,11 @@ client.interceptors.response.use(
     const body = res.data as ApiBody
     if (body && typeof body === 'object' && 'code' in body) {
       if (body.code === 0) {
-        return body.data as unknown as typeof res
+        return absolutizeUploads(body.data) as unknown as typeof res
       }
       return Promise.reject(new Error(body.message || '请求失败'))
     }
-    return res.data as unknown as typeof res
+    return absolutizeUploads(res.data) as unknown as typeof res
   },
   async (error: AxiosError<ApiBody>) => {
     const status = error.response?.status

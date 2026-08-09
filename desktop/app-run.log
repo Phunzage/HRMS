@@ -1,0 +1,17 @@
+
+(node:21048) UnhandledPromiseRejectionWarning: Error: Cannot find module '../../package.json'
+Require stack:
+- C:\Users\Phunzage\Documents\Code\HRMS\desktop\dist\win-unpacked\resources\app.asar\electron\updater.js
+- C:\Users\Phunzage\Documents\Code\HRMS\desktop\dist\win-unpacked\resources\app.asar\electron\main.js
+- 
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1232:15)
+    at s._resolveFilename (node:electron/js2c/browser_init:2:124109)
+    at Module._load (node:internal/modules/cjs/loader:1058:27)
+    at c._load (node:electron/js2c/node_init:2:16955)
+    at Module.require (node:internal/modules/cjs/loader:1318:19)
+    at require (node:internal/modules/helpers:179:18)
+    at currentVersion (C:\Users\Phunzage\Documents\Code\HRMS\desktop\dist\win-unpacked\resources\app.asar\electron\updater.js:28:15)
+    at Object.init (C:\Users\Phunzage\Documents\Code\HRMS\desktop\dist\win-unpacked\resources\app.asar\electron\updater.js:154:30)
+    at C:\Users\Phunzage\Documents\Code\HRMS\desktop\dist\win-unpacked\resources\app.asar\electron\main.js:31:13
+(Use `HRMS人力资源管理系统 --trace-warnings ...` to show where the warning was created)
+(node:21048) UnhandledPromiseRejectionWarning: Unhandled promise rejection. This error originated either by throwing inside of an async function without a catch block, or by rejecting a promise which was not handled with .catch(). To terminate the node process on unhandled promise rejection, use the CLI flag `--unhandled-rejections=strict` (see https://nodejs.org/api/cli.html#cli_unhandled_rejections_mode). (rejection id: 1)

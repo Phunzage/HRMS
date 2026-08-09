@@ -1,0 +1,138 @@
+  ‚Ä¢ electron-builder  version=25.1.8 os=10.0.19045
+  ‚Ä¢ loaded configuration  file=package.json ("build" field)
+  ‚Ä¢ executing @electron/rebuild  electronVersion=33.4.11 arch=x64 buildFromSource=false appDir=./
+  ‚Ä¢ installing native dependencies  arch=x64
+  ‚Ä¢ completed installing native dependencies
+  ‚Ä¢ packaging       platform=win32 arch=x64 electron=33.4.11 appOutDir=dist\win-unpacked
+  ‚Ä¢ downloading     url=https://npmmirror.com/mirrors/electron/v33.4.11/electron-v33.4.11-win32-x64.zip size=115 MB parts=8
+  ‚Ä¢ downloaded      url=https://npmmirror.com/mirrors/electron/v33.4.11/electron-v33.4.11-win32-x64.zip duration=1m7.008s
+  ‚Ä¢ updating asar integrity executable resource  executablePath=dist\win-unpacked\HRMS‰∫∫ÂäõËµÑÊ∫êÁÆ°ÁêÜÁ≥ªÁªü.exe
+  ‚Ä¢ downloading     url=https://npmmirror.com/mirrors/electron-builder-binaries/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  ‚Ä¢ downloaded      url=https://npmmirror.com/mirrors/electron-builder-binaries/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=4.68s
+  ‚®Ø cannot execute  cause=exit status 2
+                    out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+    
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+    
+    Extracting archive: C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\702416963.7z
+    --
+    Path = C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\702416963.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+    
+    
+    Sub items Errors: 2
+    
+    Archives with Errors: 1
+    
+    Sub items Errors: 2
+    
+                    errorOut=ERROR: Cannot create symbolic link : øÕªß∂À√ª”–À˘–ËµƒÃÿ»®°£ : C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\702416963\darwin\10.12\lib\libcrypto.dylib
+    ERROR: Cannot create symbolic link : øÕªß∂À√ª”–À˘–ËµƒÃÿ»®°£ : C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\702416963\darwin\10.12\lib\libssl.dylib
+    
+                    command='C:\Users\Phunzage\Documents\Code\HRMS\desktop\node_modules\7zip-bin\win\x64\7za.exe' x -snld -bd 'C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\702416963.7z' '-oC:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\702416963'
+                    workingDir=C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign
+  ‚Ä¢ Above command failed, retrying 3 more times
+  ‚Ä¢ downloading     url=https://npmmirror.com/mirrors/electron-builder-binaries/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  ‚Ä¢ downloaded      url=https://npmmirror.com/mirrors/electron-builder-binaries/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=5.131s
+  ‚®Ø cannot execute  cause=exit status 2
+                    out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+    
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+    
+    Extracting archive: C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\270103151.7z
+    --
+    Path = C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\270103151.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+    
+    
+    Sub items Errors: 2
+    
+    Archives with Errors: 1
+    
+    Sub items Errors: 2
+    
+                    errorOut=ERROR: Cannot create symbolic link : øÕªß∂À√ª”–À˘–ËµƒÃÿ»®°£ : C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\270103151\darwin\10.12\lib\libcrypto.dylib
+    ERROR: Cannot create symbolic link : øÕªß∂À√ª”–À˘–ËµƒÃÿ»®°£ : C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\270103151\darwin\10.12\lib\libssl.dylib
+    
+                    command='C:\Users\Phunzage\Documents\Code\HRMS\desktop\node_modules\7zip-bin\win\x64\7za.exe' x -snld -bd 'C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\270103151.7z' '-oC:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\270103151'
+                    workingDir=C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign
+  ‚Ä¢ Above command failed, retrying 3 more times
+  ‚Ä¢ downloading     url=https://npmmirror.com/mirrors/electron-builder-binaries/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  ‚Ä¢ downloaded      url=https://npmmirror.com/mirrors/electron-builder-binaries/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=3.739s
+  ‚®Ø cannot execute  cause=exit status 2
+                    out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+    
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+    
+    Extracting archive: C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\690182275.7z
+    --
+    Path = C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\690182275.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+    
+    
+    Sub items Errors: 2
+    
+    Archives with Errors: 1
+    
+    Sub items Errors: 2
+    
+                    errorOut=ERROR: Cannot create symbolic link : øÕªß∂À√ª”–À˘–ËµƒÃÿ»®°£ : C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\690182275\darwin\10.12\lib\libcrypto.dylib
+    ERROR: Cannot create symbolic link : øÕªß∂À√ª”–À˘–ËµƒÃÿ»®°£ : C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\690182275\darwin\10.12\lib\libssl.dylib
+    
+                    command='C:\Users\Phunzage\Documents\Code\HRMS\desktop\node_modules\7zip-bin\win\x64\7za.exe' x -snld -bd 'C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\690182275.7z' '-oC:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\690182275'
+                    workingDir=C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign
+  ‚Ä¢ Above command failed, retrying 3 more times
+  ‚Ä¢ downloading     url=https://npmmirror.com/mirrors/electron-builder-binaries/winCodeSign-2.6.0/winCodeSign-2.6.0.7z size=5.6 MB parts=1
+  ‚Ä¢ downloaded      url=https://npmmirror.com/mirrors/electron-builder-binaries/winCodeSign-2.6.0/winCodeSign-2.6.0.7z duration=3.72s
+  ‚®Ø cannot execute  cause=exit status 2
+                    out=
+    7-Zip (a) 21.07 (x64) : Copyright (c) 1999-2021 Igor Pavlov : 2021-12-26
+    
+    Scanning the drive for archives:
+    1 file, 5635384 bytes (5504 KiB)
+    
+    Extracting archive: C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\835369543.7z
+    --
+    Path = C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\835369543.7z
+    Type = 7z
+    Physical Size = 5635384
+    Headers Size = 1492
+    Method = LZMA2:24m LZMA:20 BCJ2
+    Solid = +
+    Blocks = 2
+    
+    
+    Sub items Errors: 2
+    
+    Archives with Errors: 1
+    
+    Sub items Errors: 2
+    
+                    errorOut=ERROR: Cannot create symbolic link : øÕªß∂À√ª”–À˘–ËµƒÃÿ»®°£ : C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\835369543\darwin\10.12\lib\libcrypto.dylib
+    ERROR: Cannot create symbolic link : øÕªß∂À√ª”–À˘–ËµƒÃÿ»®°£ : C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\835369543\darwin\10.12\lib\libssl.dylib
+    
+                    command='C:\Users\Phunzage\Documents\Code\HRMS\desktop\node_modules\7zip-bin\win\x64\7za.exe' x -snld -bd 'C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\835369543.7z' '-oC:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign\835369543'
+                    workingDir=C:\Users\Phunzage\AppData\Local\electron-builder\Cache\winCodeSign
+  ‚Ä¢ Above command failed, retrying 3 more times
+EXIT_CODE=1
