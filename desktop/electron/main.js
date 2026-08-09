@@ -4,8 +4,10 @@ const path = require('path')
 const { pathToFileURL } = require('url')
 const updater = require('./updater')
 
-// 开发模式加载 vite dev server，生产模式加载打包进 asar 的 build-web 静态产物
+// 开发模式加载 vite dev server，生产模式直接加载线上前端（http 同源，避免 file:// 限制）
 const DEV_URL = 'http://localhost:5173'
+// 生产：线上前端地址（同源 http，无 file:// 下 module script CORS 问题，API 请求同源）
+const PROD_URL = 'http://115.29.197.130'
 // 用 app.getAppPath()（asar 根目录）拼路径，再用 pathToFileURL 显式转成 file:// URL；
 // loadFile 直接传 asar 内路径在本机出现 URL 错乱（file:///C:/），故用 loadURL 显式给定
 const WEB_INDEX = path.join(app.getAppPath(), 'build-web', 'index.html')
@@ -62,9 +64,11 @@ function createWindow() {
   mainWindow.webContents.on('did-fail-load', (_e, code, desc, url) => console.log('[did-fail-load]', code, desc, url))
   mainWindow.webContents.on('did-finish-load', () => console.log('[did-finish-load]', mainWindow.webContents.getURL()))
 
-  console.log('[main] isPackaged=', app.isPackaged, 'WEB_INDEX=', WEB_INDEX)
+  console.log('[main] isPackaged=', app.isPackaged, 'WEB_INDEX=', WEB_INDEX, 'PROD_URL=', PROD_URL)
   if (app.isPackaged) {
-    mainWindow.loadFile(WEB_INDEX)
+    // 生产：直接加载线上前端（http 同源，避免 file:// 下 module script 被 Chromium CORS 阻止导致白屏；
+    // 同时 API 请求同源，无跨域问题；更新机制读取的是服务器端新版本信息）
+    mainWindow.loadURL(PROD_URL)
   } else {
     mainWindow.loadURL(DEV_URL)
   }
