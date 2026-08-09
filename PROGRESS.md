@@ -35,6 +35,8 @@
 | M22 | 统一待办中心+审批进度时间线 | prompts/batch23_approval_frontend.md | ✅ 完成 | 21:55 |
 | M23 | 仪表盘数据范围+HR池通知+角标接口 | prompts/batch24_dashboard_scope_notify_badges.md | ✅ 完成 | 23:05 |
 | M24 | 前端导航栏角标+公告已读联动 | prompts/batch25_badges_frontend.md | ✅ 完成 | 23:12 |
+| M25 | 权限重构(admin专注系统管理+hr全公司) | prompts/batch26_rbac_rework.md | ✅ 完成 | 次日 11:30 |
+| M26 | 前端权限联动(admin菜单收敛+公告admin) | prompts/batch27_frontend_rbac.md | ✅ 完成 | 次日 11:45 |
 
 ## 已确认的环境
 
@@ -88,6 +90,13 @@
 - **仪表盘数据范围**：hr 仪表盘统计接入 ResolveScope（在招职位/员工/考勤/工资/趋势按负责部门过滤），与列表口径一致（hr 见 3 个岗位、admin 见全局 4 个）
 - **HR 池通知修复**：审批引擎 HR 终审步骤原来不发通知（approver_id=nil 直接跳过）→ 改为广播所有 HR 用户，hr 账号现在能收到请假/补卡终审待办通知
 - **导航栏角标**：GET /badges 汇总接口（pending_approvals / unread_announcements / unread_notifications），前端 30s+聚焦统一轮询；「我的审批」显示待办数角标、「公告管理」显示未读公告数角标、顶栏铃铛显示通知未读数；公告已读机制（单条/全部已读，列表带 is_read），进入公告页自动全部已读并清零角标
+
+## 五轮增强完成情况（权限模型定稿）
+
+用户澄清角色定位后重构权限体系：
+- **admin = 系统管理员**（最终版）：仅仪表盘总览（监督）+ 公告管理（发维护/升级通知）+ 用户管理/角色管理/审计日志；**全部业务菜单移除**（员工/考勤/请假/薪酬/招聘/绩效/部门/岗位，连只读也无）；「我的审批」移除；HR 池终审仅 hr 角色可审（admin 审批 HR 池任务 → 403，待办列表/角标不再出现）
+- **hr = 全公司人事管理**：清空 dept_scope_id（所有 hr 账号恢复全量），仪表盘/招聘/员工等恢复全公司口径（实测 hr 与 admin 口径一致：在招职位 7、部门 4 个、岗位覆盖全部部门）；hr 可新增任意部门岗位；hr 账号仅 admin 可创建（hr 无 user 权限），新 hr 账号自动继承角色全部权限
+- 数据范围机制（ResolveScope）保留但当前所有 hr 全量，未来可复用
 
 ## 二轮增强完成情况
 
