@@ -111,6 +111,11 @@ func Register(r *gin.Engine, db *gorm.DB) {
 	auditService := service.NewAuditService(auditRepo)
 	auditHandler := handler.NewAudit(auditService)
 
+	// 客户端版本更新模块（check/latest 公开，versions 管理接口）
+	updateRepo := repository.NewUpdateRepo(db)
+	updateService := service.NewUpdateService(updateRepo)
+	updateHandler := handler.NewUpdate(updateService, db)
+
 	// API v1 分组
 	v1 := r.Group("/api/v1")
 	{
@@ -121,6 +126,10 @@ func Register(r *gin.Engine, db *gorm.DB) {
 		v1.GET("/auth/captcha", authHandler.Captcha)
 		v1.POST("/auth/login", authHandler.Login)
 		v1.POST("/auth/refresh", authHandler.Refresh)
+
+		// 客户端版本更新（公开接口，客户端启动时调用，无需 JWT）
+		v1.GET("/update/check", updateHandler.Check)
+		v1.GET("/update/latest", updateHandler.Latest)
 
 		// 需登录的认证接口
 		authed := v1.Group("", middleware.JWTAuth(cfg.JWTSecret))
@@ -317,6 +326,13 @@ func Register(r *gin.Engine, db *gorm.DB) {
 			dashboard := authed.Group("/dashboard")
 			{
 				dashboard.GET("/stats", middleware.RequirePermission(db, "dashboard:read"), dashboardHandler.Stats)
+			}
+
+			// 客户端版本更新管理（admin 专属，update:read/update:write）
+			updateVersions := authed.Group("/update/versions")
+			{
+				updateVersions.POST("", middleware.RequirePermission(db, "update:write"), updateHandler.Create)
+				updateVersions.GET("", middleware.RequirePermission(db, "update:read"), updateHandler.List)
 			}
 		}
 	}

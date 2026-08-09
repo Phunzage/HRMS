@@ -148,6 +148,8 @@ func seedPermissions(db *gorm.DB) error {
 		{Name: "审批流程配置", Code: "approval_flow:write", Module: "approval"},
 		{Name: "请假审批", Code: "leave:approve", Module: "approval"},
 		{Name: "补卡审批", Code: "attendance_correction:approve", Module: "approval"},
+		{Name: "更新版本查看", Code: "update:read", Module: "update"},
+		{Name: "更新版本登记", Code: "update:write", Module: "update"},
 	}
 	for _, p := range permissions {
 		var existing models.Permission
@@ -178,6 +180,7 @@ func seedRolePermissions(db *gorm.DB) error {
 			"announcement:read", "announcement:write",
 			"approval_flow:read", "approval_flow:write",
 			"position:read",
+			"update:read", "update:write",
 		},
 		// hr = 业务管理员：全公司口径，负责人事业务读写（含公告），不再有用户/角色/审计管理权限；
 		// 审批终审职能改由权限控制（leave:approve + attendance_correction:approve），不再是角色写死
