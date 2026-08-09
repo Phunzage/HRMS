@@ -72,9 +72,17 @@ export function fetchApprovalProgress(bizType: string, bizId: number) {
   }) as Promise<ApprovalProgress>
 }
 
-// 审批通过（comment 可选，返回更新后的实例，前端据 status 判断是否还有下一步）
+// 审批通过响应（审批实例 + 下一步骤信息，前端 toast 动态提示「等待 XX 审批」用）
+export interface ApproveResult extends ApprovalInstance {
+  /** 下一步骤名称（如 人事专员审批；终审通过=空串） */
+  next_step_name?: string
+  /** 下一步骤类型（manager/role/...；终审通过=空串） */
+  next_step_type?: string
+}
+
+// 审批通过（comment 可选，返回更新后的实例 + 下一步骤名称，前端据 status / next_step_name 动态提示）
 export function approveTask(taskId: number, comment = '') {
-  return client.put(`/approvals/tasks/${taskId}/approve`, { comment }) as Promise<ApprovalInstance>
+  return client.put(`/approvals/tasks/${taskId}/approve`, { comment }) as Promise<ApproveResult>
 }
 
 // 驳回（comment 必填）

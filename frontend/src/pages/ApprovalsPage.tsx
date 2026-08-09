@@ -97,10 +97,11 @@ export default function ApprovalsPage() {
     setActing(true)
     try {
       const inst = await approveTask(target.id, comment)
-      if (inst.status === 'approved') {
-        toast.success('审批已通过')
+      // 动态提示：下一步骤名称由后端返回（审批流程可配置），无下一步（终审通过）显示通用成功
+      if (inst.next_step_name) {
+        toast.success('已通过，等待' + inst.next_step_name)
       } else {
-        toast.success('已通过，等待 HR 终审')
+        toast.success('审批已通过')
       }
       closeModal()
       reload()

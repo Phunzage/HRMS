@@ -10,7 +10,6 @@ import (
 	"gorm.io/gorm"
 
 	"hrms/backend/internal/middleware"
-	"hrms/backend/internal/models"
 	"hrms/backend/internal/response"
 	"hrms/backend/internal/service"
 )
@@ -104,20 +103,20 @@ func (h *Approval) Approve(c *gin.Context) {
 		return
 	}
 	userID := middleware.GetUserID(c)
-	var inst *models.ApprovalInstance
+	var result *service.ApproveResult
 	err = h.db.Transaction(func(tx *gorm.DB) error {
 		var e error
-		inst, e = service.ApproveTask(tx, taskID, userID, req.Comment)
+		result, e = service.ApproveTask(tx, taskID, userID, req.Comment)
 		if e != nil {
 			return e
 		}
 		// 终审通过：同事务执行业务回调（更新状态/扣余额/联动考勤/通知）
-		if inst.Status == "approved" {
-			cb, ok := h.callbacks[inst.BizType]
+		if result.Status == "approved" {
+			cb, ok := h.callbacks[result.BizType]
 			if !ok {
-				return fmt.Errorf("未注册的审批终审回调: %s", inst.BizType)
+				return fmt.Errorf("未注册的审批终审回调: %s", result.BizType)
 			}
-			return cb.ApplyApproved(tx, inst.BizID)
+			return cb.ApplyApproved(tx, result.BizID)
 		}
 		return nil
 	})
@@ -125,8 +124,9 @@ func (h *Approval) Approve(c *gin.Context) {
 		h.handleError(c, err)
 		return
 	}
-	middleware.Record(h.db, c, "approval", "approve", fmt.Sprintf("task:%d", taskID), fmt.Sprintf("审批通过(ID:%d, %s)", taskID, inst.BizType))
-	response.OK(c, inst)
+	middleware.Record(h.db, c, "approval", "approve", fmt.Sprintf("task:%d", taskID), fmt.Sprintf("审批通过(ID:%d, %s)", taskID, result.BizType))
+	// 响应平铺实例字段 + next_step_name/type（前端据下一步骤名称动态提示）
+	response.OK(c, result)
 }
 
 // Reject 驳回：事务内任务→rejected、实例→rejected，同事务执行业务回调

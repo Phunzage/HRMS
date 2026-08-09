@@ -19,16 +19,16 @@ func newCorrectionSvc(tx *gorm.DB) *AttendanceCorrectionService {
 // approveCorrectionTask 模拟 handler 审批链路：事务内审批任务，终审通过时调用业务回调
 func approveCorrectionTask(t *testing.T, tx *gorm.DB, svc *AttendanceCorrectionService, taskID uint, approverUserID uint) *models.ApprovalInstance {
 	t.Helper()
-	inst, err := ApproveTask(tx, taskID, approverUserID, "同意")
+	res, err := ApproveTask(tx, taskID, approverUserID, "同意")
 	if err != nil {
 		t.Fatalf("审批通过失败: %v", err)
 	}
-	if inst.Status == "approved" {
-		if err := svc.ApplyApproved(tx, inst.BizID); err != nil {
+	if res.Status == "approved" {
+		if err := svc.ApplyApproved(tx, res.BizID); err != nil {
 			t.Fatalf("终审通过回调失败: %v", err)
 		}
 	}
-	return inst
+	return res.ApprovalInstance
 }
 
 // corrDate 生成补卡日期字符串（今天或昨天，满足 30 天内且不晚于今天）

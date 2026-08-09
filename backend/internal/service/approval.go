@@ -77,6 +77,14 @@ type BizDetail struct {
 	Tasks    []TaskDetail             `json:"tasks"`
 }
 
+// ApproveResult 审批通过结果：实例 + 下一步骤显示信息（前端 toast 动态提示「等待 XX 审批」用）
+// 嵌入 *models.ApprovalInstance 使 JSON 序列化平铺实例字段，并新增 next_step_name / next_step_type（终审通过=空串）
+type ApproveResult struct {
+	*models.ApprovalInstance
+	NextStepName string `json:"next_step_name"` // 下一步骤名称（如 人事专员审批；无下一步=空）
+	NextStepType string `json:"next_step_type"` // 下一步骤类型（manager/role/...；无下一步=空）
+}
+
 // StartApproval 启动审批流程（事务内调用）：创建审批实例 + 步骤1任务 + 通知步骤1审批人
 // bizType 为流程编码（leave / attendance_correction），bizID 为业务记录 ID，applicantUserID 为提交人用户 ID
 func StartApproval(tx *gorm.DB, bizType string, bizID uint, applicantUserID uint) (*models.ApprovalInstance, error) {
@@ -134,8 +142,8 @@ func StartApproval(tx *gorm.DB, bizType string, bizID uint, applicantUserID uint
 }
 
 // ApproveTask 审批通过（事务内调用）：任务 → approved；有下一步则推进并创建下一条任务+通知，无下一步则实例 → approved
-// 返回实例，调用方根据 Status == "approved" 决定是否执行终审业务回调
-func ApproveTask(tx *gorm.DB, taskID uint, approverUserID uint, comment string) (*models.ApprovalInstance, error) {
+// 返回 ApproveResult（嵌入实例 + 下一步骤显示信息），调用方根据 Status == "approved" 决定是否执行终审业务回调
+func ApproveTask(tx *gorm.DB, taskID uint, approverUserID uint, comment string) (*ApproveResult, error) {
 	task, err := loadPendingTask(tx, taskID)
 	if err != nil {
 		return nil, err
@@ -188,7 +196,7 @@ func ApproveTask(tx *gorm.DB, taskID uint, approverUserID uint, comment string) 
 			return nil, err
 		}
 		approvalNotify(tx, inst, approverID, &nextStep)
-		return inst, nil
+		return &ApproveResult{ApprovalInstance: inst, NextStepName: stepDisplayName(tx, &nextStep), NextStepType: nextStep.ApproverType}, nil
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		// 无下一步：实例终审通过
 		if err := tx.Model(&models.ApprovalInstance{}).Where("id = ?", inst.ID).
@@ -196,7 +204,7 @@ func ApproveTask(tx *gorm.DB, taskID uint, approverUserID uint, comment string) 
 			return nil, err
 		}
 		inst.Status = "approved"
-		return inst, nil
+		return &ApproveResult{ApprovalInstance: inst}, nil
 	default:
 		return nil, err
 	}
@@ -840,6 +848,37 @@ func resolveStepApproverUserID(tx *gorm.DB, inst *models.ApprovalInstance, step 
 	}
 	// 未知类型返回 nil（不指派具体审批人，避免流程中断）
 	return nil, nil
+}
+
+// stepDisplayName 计算审批步骤的显示名（前端审批通过 toast「已通过，等待 XX 审批」用）：
+// manager → 部门经理审批；role → {角色名}审批（查 roles.name）；hr → HR终审；position → 岗位名；permission → 权限点名；
+// 查询失败或未知类型时回退步骤自身 Name（如 人事专员审批 / HR终审），再无可返回空串
+func stepDisplayName(tx *gorm.DB, step *models.ApprovalStep) string {
+	switch step.ApproverType {
+	case "manager":
+		return "部门经理审批"
+	case "hr":
+		return "HR终审"
+	case "role":
+		var role models.Role
+		if err := tx.Select("name").First(&role, step.ApproverRoleID).Error; err == nil && role.Name != "" {
+			return role.Name + "审批"
+		}
+	case "position":
+		var pos models.Position
+		if err := tx.Select("name").First(&pos, step.ApproverRef).Error; err == nil && pos.Name != "" {
+			return pos.Name
+		}
+	case "permission":
+		var perm models.Permission
+		if err := tx.Select("name").Where("code = ?", step.ApproverPermission).First(&perm).Error; err == nil && perm.Name != "" {
+			return perm.Name
+		}
+	}
+	if step.Name != "" {
+		return step.Name
+	}
+	return ""
 }
 
 // approvalNotify 向审批人发送待审批通知：

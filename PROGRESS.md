@@ -43,6 +43,7 @@
 | M30 | 角色审批权限勾选+流程页联动(前端) | prompts/batch31_permission_frontend.md | ✅ 完成 | 次日 17:50 |
 | M31 | 审批链修复(递归经理+角色池) | prompts/batch32_approval_fix.md | ✅ 完成 | 次日 19:20 |
 | M32 | UI权限与权限点同步(usePerm) | prompts/batch33_perm_frontend.md | ✅ 完成 | 次日 19:35 |
+| M33 | VP菜单权限点驱动+审批提示动态化 | prompts/batch34_vp_menu_dynamic_toast.md | ✅ 完成 | 次日 20:30 |
 
 ## 已确认的环境
 
@@ -130,6 +131,13 @@
 3. **通知链路检查**：StartApproval/ApproveTask 推进按新逻辑（经理指派→仅经理；未指派→权限池广播；role 池→角色广播）；终审/驳回→申请人 leave_result；禁用账号跳过通知 ✅
 4. **审批流程页改角色制**：步骤类型改为 manager（部门经理）+ role（**指定角色**，如人事专员/副总经理），ApprovalStep/Task 增加 approver_role_id；优先级=步骤顺序；默认请假=经理→角色(人事) ✅
 5. **UI 与权限点同步**：/auth/me 返回 permissions 列表 + 前端 usePerm hook（has/hasAny），全部页面 canManage 从 `role==='hr'` 硬编码改为权限点判断（Announcements 用 announcement:write 等 11 处）；manager 勾 announcement:write 后「发布公告」按钮即出现 ✅
+
+## 九轮增强完成情况（VP 菜单权限化 + 审批提示动态化）
+
+用户实测两个问题，全部修复：
+1. **VP（副总经理）登录侧边栏空白**：菜单项 roles 数组全小写，自定义角色 role_code（如 VP 大写）大小写不匹配被全过滤。改为**权限点优先 + roles 兜底**：每个业务菜单项补充 perms（有权限点按 hasAny 判定、perms=[] 登录可见、无 perms 按 roles 大小写不敏感兜底）；系统管理保持 admin 专属。VP（14 权限）实测侧边栏 11 项：员工/部门/岗位/考勤/请假/我的审批/薪酬/公告/绩效/招聘/个人中心，无系统管理、无仪表盘（VP 无 dashboard:read，默认按权限点不给）✅
+2. **审批通过 toast 硬编码「等待 HR 终审」**：审批流程可配置（本库请假二级实为副总经理/VP 角色）。后端 `ApproveTask` 响应增加 `next_step_name`/`next_step_type`（按步骤类型计算显示名：manager→部门经理审批、role→{角色名}审批、hr→HR终审、position→岗位名、permission→权限点名，终审=空），前端 ApprovalsPage/LeavePage/AttendanceCorrections 三处据 next_step_name 动态提示。实测：刘尧过请假一级→「已通过，等待副总经理审批」，VP 过二级终审→「审批已通过」；补卡单级终审→「补卡审批已通过」（不再误报等待 HR 终审）✅
+3. **顺带修复 usePerm 无限重渲染崩溃**：`useAuthStore(s => s.user?.permissions ?? [])` 在 permissions 缺失时每次返回新数组引用，触发 React 18 useSyncExternalStore「Maximum update depth exceeded」崩溃（旧 localStorage 无 permissions 字段即触发，guard 的 /auth/me 补全来不及执行）。改为模块级 `EMPTY_PERMS` 稳定空引用，实测 VP 登录渲染正常 ✅
 
 ## 二轮增强完成情况
 

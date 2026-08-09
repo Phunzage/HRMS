@@ -94,16 +94,16 @@ func stepTask(t *testing.T, tx *gorm.DB, inst *models.ApprovalInstance, step int
 // approveTask 模拟 handler 审批链路：事务内审批任务，终审通过时调用业务回调
 func approveTask(t *testing.T, tx *gorm.DB, svc *LeaveService, taskID uint, approverUserID uint) *models.ApprovalInstance {
 	t.Helper()
-	inst, err := ApproveTask(tx, taskID, approverUserID, "同意")
+	res, err := ApproveTask(tx, taskID, approverUserID, "同意")
 	if err != nil {
 		t.Fatalf("审批通过失败: %v", err)
 	}
-	if inst.Status == "approved" {
-		if err := svc.ApplyApproved(tx, inst.BizID); err != nil {
+	if res.Status == "approved" {
+		if err := svc.ApplyApproved(tx, res.BizID); err != nil {
 			t.Fatalf("终审通过回调失败: %v", err)
 		}
 	}
-	return inst
+	return res.ApprovalInstance
 }
 
 // TestLeaveBalanceCheck 余额校验：超余额拒绝；刚好够通过且进入审批流保持 pending
