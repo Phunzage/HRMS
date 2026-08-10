@@ -1,0 +1,36 @@
+# ===== 敏感文件：绝不提交 =====
+# 环境配置（含 JWT_SECRET / 数据库密码 / 服务器地址）
+.env
+*.env
+!.env.example
+frontend/.env.production
+desktop/.env.production
+*.local
+
+# ===== 开发批次（内部使用，不公开） =====
+prompts/
+
+# ===== 构建产物 =====
+backend/hrms-server*
+desktop/dist/
+desktop/build-web/
+desktop/win-unpacked/
+frontend/dist/
+frontend/android/app/build/
+frontend/android/.gradle/
+frontend/android/local.properties
+frontend/android/app/release/
+*.apk
+*.exe
+*.blockmap
+
+# ===== 依赖 =====
+node_modules/
+desktop/node_modules/
+frontend/node_modules/
+
+# ===== 日志与临时 =====
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
