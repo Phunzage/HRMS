@@ -168,6 +168,7 @@ func seedPermissions(db *gorm.DB) error {
 }
 
 // seedRolePermissions 写入角色-权限关联（admin 不再直接放行，统一查 role_permissions，保证业务只读生效）
+// 默认权限仅在角色「从未配置过任何权限」时写入一次；之后由 admin 在角色管理界面维护，重启不还原。
 func seedRolePermissions(db *gorm.DB) error {
 	rolePerms := map[string][]string{
 		// admin = 系统管理员：专注系统管理（用户/角色/审计）+ 审批流程配置，仅保留公告与仪表盘监督；
@@ -224,29 +225,25 @@ func seedRolePermissions(db *gorm.DB) error {
 		if err := db.Where("code = ?", roleCode).First(&role).Error; err != nil {
 			return fmt.Errorf("查询角色 %s 失败: %w", roleCode, err)
 		}
+		// 角色已有任何权限配置（无论由谁配置，含 admin 在角色管理界面的增删）→ 完全跳过，
+		// 不补全不清理，保证 admin 的修改在重启后不被还原。
+		var configured int64
+		if err := db.Model(&models.RolePermission{}).
+			Where("role_id = ?", role.ID).
+			Count(&configured).Error; err != nil {
+			return fmt.Errorf("统计角色 %s 权限配置数失败: %w", roleCode, err)
+		}
+		if configured > 0 {
+			continue
+		}
+		// 全新角色（从未配置过权限）→ 写入该角色默认权限
 		for _, code := range codes {
 			var perm models.Permission
 			if err := db.Where("code = ?", code).First(&perm).Error; err != nil {
 				return fmt.Errorf("查询权限点 %s 失败: %w", code, err)
 			}
-			var count int64
-			db.Model(&models.RolePermission{}).
-				Where("role_id = ? AND permission_id = ?", role.ID, perm.ID).
-				Count(&count)
-			if count == 0 {
-				if err := db.Create(&models.RolePermission{RoleID: role.ID, PermissionID: perm.ID}).Error; err != nil {
-					return fmt.Errorf("关联角色 %s 权限 %s 失败: %w", roleCode, code, err)
-				}
-			}
-		}
-		// 清理：移除该角色下不在配置中的权限关联，保持与种子定义一致（幂等自愈）
-		var permIDs []uint
-		if err := db.Model(&models.Permission{}).Where("code IN ?", codes).Pluck("id", &permIDs).Error; err != nil {
-			return fmt.Errorf("查询角色 %s 权限点失败: %w", roleCode, err)
-		}
-		if len(permIDs) > 0 {
-			if err := db.Where("role_id = ? AND permission_id NOT IN ?", role.ID, permIDs).Delete(&models.RolePermission{}).Error; err != nil {
-				return fmt.Errorf("清理角色 %s 权限关联失败: %w", roleCode, err)
+			if err := db.Create(&models.RolePermission{RoleID: role.ID, PermissionID: perm.ID}).Error; err != nil {
+				return fmt.Errorf("关联角色 %s 权限 %s 失败: %w", roleCode, code, err)
 			}
 		}
 	}

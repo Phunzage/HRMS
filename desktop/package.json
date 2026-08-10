@@ -1,12 +1,12 @@
 {
   "name": "hrms-desktop",
   "productName": "HRMS人力资源管理系统",
-  "version": "1.0.2",
+  "version": "1.0.5",
   "description": "HRMS人力资源管理系统 Windows 桌面客户端",
   "main": "electron/main.js",
   "author": "HRMS",
   "license": "MIT",
-  "buildNumber": 3,
+  "buildNumber": 4,
   "scripts": {
     "dev": "electron .",
     "dist": "electron-builder --win",
