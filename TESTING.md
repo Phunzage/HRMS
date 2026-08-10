@@ -2,7 +2,7 @@
 
 > 前置条件：PostgreSQL 18 服务运行中，`hrms` 数据库已存在（脚本会自动连接，缺失时后端日志会提示）
 > 一键启动：双击 `start.bat`（或 git-bash 下执行 `./start.sh`），自动拉起前后端并打开浏览器
-> 生产验证：线上服务器 `http://115.29.197.130`（网页版 + Windows/Android 客户端）
+> 生产验证：线上服务器（网页版 + Windows/Android 客户端）
 
 ## 0. 启动与访问
 
@@ -10,7 +10,7 @@
 |---|---|
 | 前端（本地） | http://localhost:5173 |
 | 后端（本地） | http://localhost:8080 （前端已配 proxy，一般无需直连） |
-| 线上（网页版） | http://115.29.197.130 |
+| 线上（网页版） |  |
 | 停止 | 关闭 `HRMS-Backend` / `HRMS-Frontend` 两个窗口（start.sh 用 Ctrl+C） |
 
 ## 1. 内置账号
@@ -88,7 +88,7 @@
 - 暗色模式切换并持久化；导航角标（待审批/未读公告/未读通知）随轮询更新
 
 ### Windows 桌面端
-- 安装包 `hrms-desktop Setup` 安装 → 启动加载线上前端（loadURL http://115.29.197.130）
+- 安装包 `hrms-desktop Setup` 安装 → 启动加载线上前端
 - 系统通知（见第 4 节）；自动更新提示条（hrmsUpdater bridge）；桌面端无需单独部署前端
 
 ### Android 端

@@ -160,7 +160,7 @@ P2 完成（2/2）：绩效管理、暗色模式。
 
 ## 十轮（部署上线）完成情况
 
-- **服务器部署**：Ubuntu 24.04 @ 115.29.197.130，PostgreSQL（低内存调优）+ Go 后端 systemd + Nginx 反代（80 端口，SPA 回退）+ UFW 加固（仅 22/80/443）；公网 health/登录/静态页全通
+- **服务器部署**：Ubuntu 24.04，PostgreSQL（低内存调优）+ Go 后端 systemd + Nginx 反代（80 端口，SPA 回退）+ UFW 加固（仅 22/80/443）；公网 health/登录/静态页全通
 - **更新检查 API**：GET /api/v1/update/check?platform=win|android&build=N → has_update + 最新版本信息；admin 管理接口 POST/GET /api/v1/update/versions；权限点 update:read/write
 - **Windows 桌面端**：Electron + electron-builder → `hrms-desktop Setup 1.0.0.exe`（81.8MB）；**随机更新拉取**（启动 5s 首次检查 + 30~60min 随机间隔轮询）；下载完整安装包到下载目录引导安装；前端更新提示条（hrmsUpdater bridge）
 - **Android 端**：Capacitor 包装（3.2MB APK，com.hrms.app）；原生 Updater（随机间隔 + 通知 + DownloadManager 下载 + 安装引导）；targetSdk 36 / minSdk 24
@@ -192,7 +192,7 @@ P2 完成（2/2）：绩效管理、暗色模式。
 
 - **后端**：Go + Gin + GORM 分层实现，AutoMigrate 建表（24 张）+ seed 内置数据，JWT + RBAC 权限控制（30 个权限点，admin/hr/manager/employee 定稿矩阵），通用审批流引擎 + 可配置审批流程，自动化测试 65 例全绿。
 - **前端**：React 18 + TypeScript + Vite + Tailwind + daisyUI，axios 统一拦截器，zustand 状态管理，移动端全面适配（抽屉导航/表格横滑/响应式 Modal），usePerm 权限点驱动菜单。
-- **三端形态**：网页版（http://115.29.197.130）+ Windows 桌面端（Electron 1.0.5，loadURL 线上前端 + 系统通知 + 自动更新）+ Android 端（Capacitor 1.0.4，远程加载 + LocalNotifications + WorkManager 后台轮询）。
+- **三端形态**：网页版+ Windows 桌面端（Electron 1.0.5，loadURL 线上前端 + 系统通知 + 自动更新）+ Android 端（Capacitor 1.0.4，远程加载 + LocalNotifications + WorkManager 后台轮询）。
 - **质量**：`go build`、`go vet`、`gofmt`、`npm run build` 全绿；端到端联调覆盖登录、CRUD、审批流、状态机、RBAC 越权、系统通知、移动端适配等场景。
 
 ### 遗留事项

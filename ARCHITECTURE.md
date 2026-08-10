@@ -1,7 +1,7 @@
 # HRMS 人力资源管理系统 — 架构设计文档
 
 > 架构师：Hermes Agent（指挥官）｜ 实现：Claude Code（deepseek-flash）
-> 日期：2026-08-10
+> 更新日期：2026-08-10
 > 参考项目：github.com/pbrong/hrms（Go 单体 HRMS）、github.com/frappe/hrms（模块化开源 HRMS 的模块划分思路）
 
 ## 1. 总体架构
@@ -19,7 +19,7 @@
 ┌──────────────────────▼──────────────────────┬──▼──────────────────────────────────┐
 │              Gin HTTP 服务 (Go 1.25)         │  Nginx 反代 (80) + SPA 回退          │
 │  middleware: CORS → Logger → JWT Auth → RBAC │  /uploads/ 静态 + /updates/ 更新包    │
-│  handler 层 → service 层 → repository 层 → GORM│   (生产 115.29.197.130)             │
+│  handler 层 → service 层 → repository 层 → GORM│                                  │
 └──────────────────────┬────────────────────────┴───┬───────────────────────────────┘
                        │ PostgreSQL 18 (hrms 库, 24 张表)
                        ▼
@@ -40,7 +40,7 @@
 | 请求 | Axios（拦截器注入 JWT） | API 客户端 |
 | Windows 桌面端 | Electron + electron-builder | loadURL 线上前端 + 系统通知 + 自动更新 |
 | Android 端 | Capacitor + WorkManager + @capacitor/local-notifications | 远程加载 + 前台/后台系统通知 |
-| 服务器 | Ubuntu 24.04 + Nginx + systemd + UFW | 生产部署（115.29.197.130） |
+| 服务器 | Ubuntu 24.04 + Nginx + systemd + UFW | 生产部署 |
 
 ## 3. 目录结构
 
