@@ -47,6 +47,11 @@
 | M34 | 服务器部署+更新检查API | prompts/batch35_server_deploy.md | ✅ 完成 | 次日 21:00 |
 | M35 | Electron Windows客户端+随机更新 | prompts/batch36_electron_desktop.md | ✅ 完成 | 次日 22:00 |
 | M36 | Capacitor Android APK+随机更新 | prompts/batch37_android_apk.md | ✅ 完成 | 次日 22:30 |
+| M37 | 客户端白屏/验证码修复+重打包1.0.1 | prompts/batch38_rebuild_fix.md | ✅ 完成 | 次日 22:45 |
+| M38 | 移动端适配-批次A 抽屉侧边栏+登录页 | prompts/batch38M_A_sidebar_login.md | ✅ 完成 | 8-10 09:30 |
+| M39 | 移动端适配-批次B 考勤/请假/审批 | prompts/batch38M_B_attendance_leave.md | ✅ 完成 | 8-10 09:55 |
+| M40 | 移动端适配-批次C 仪表盘/薪酬/绩效/招聘 | prompts/batch38M_C_dashboard_salary.md | ✅ 完成 | 8-10 10:10 |
+| M41 | 移动端适配-批次D 9个管理页 | prompts/batch38M_D_admin_pages.md | ✅ 完成 | 8-10 10:35 |
 
 ## 已确认的环境
 
@@ -150,6 +155,16 @@
 - **Android 端**：Capacitor 包装（3.2MB APK，com.hrms.app）；原生 Updater（随机间隔 + 通知 + DownloadManager 下载 + 安装引导）；targetSdk 36 / minSdk 24
 - **更新包分发**：/opt/hrms/updates/（win exe + android apk），Nginx /updates/ 静态下载，双平台 build=0 均返回 has_update:true、下载 200 OK
 - **遗留**：Android 用 debug 签名（上架需正式 keystore）、默认图标、http 明文（绑域名后上 https）、gradle 需镜像下载
+
+## 十一轮（移动端全面适配）完成情况
+
+用户发现 Android 端（Capacitor WebView）无移动端适配，桌面布局在手机上不可用。分 4 批次完成全部 19 页适配：
+- **批次 A（骨架）**：MainLayout 抽屉侧边栏（桌面 lg 常驻 / 移动 lg:hidden 抽屉 + 汉堡按钮 + 遮罩 + 选中自动关闭）；SidebarContent 抽共享组件避免重复；通知下拉移动端固定视口面板；登录页窄屏适配（min-w-0/验证码 max-w-full）
+- **批次 B（考勤/请假/审批）**：Tab 栏 overflow-x-auto + w-max；余额卡片 grid 断点（移动1列→桌面4列）；弹窗表单单列化；审批弹窗按钮移动端纵向堆叠；**共享 Modal 组件改 `max-w-[min(95vw,42rem)]`** 全局覆盖
+- **批次 C（仪表盘/薪酬/绩效/招聘）**：统计卡片 1→5 列断点；工具栏/按钮 flex-wrap；弹窗表单单列化；招聘 Tab 横滑；**修复顶栏窄屏溢出 6px**（隐藏标题/姓名文本）
+- **批次 D（9 个管理页）**：员工/用户/岗位/角色/审计表格横滑真实可滑；部门树缩进响应式；角色权限网格移动单列；审批流程步骤行移动端堆叠；个人中心网格单列；公告 textarea 全宽（顺带修复 daisyUI textarea 不随 Field 拉伸的历史问题）
+- **验证**：每批 375×667 视口实测（累计 84+ 项全过，含无横向溢出、抽屉交互、弹窗可操作）+ 桌面 1440 回归；npm run build 全绿
+- **待办**：重新打包 Android APK v1.0.2（含移动端适配）与 Windows 包；LeavePage 请假事由 textarea 补 w-full（批次 D 遗留小项）
 
 ## 二轮增强完成情况
 
