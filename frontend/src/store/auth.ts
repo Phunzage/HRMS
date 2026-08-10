@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
+import { syncTokenToNative } from '../api/tokenBridge'
 
 // 用户信息（登录返回的 UserBrief 与 /auth/me 返回的 MeResult 公共字段）
 export interface AuthUser {
@@ -44,3 +45,11 @@ export const useAuthStore = create<AuthState>()(
     },
   ),
 )
+
+// token 变更时同步到原生层（Android TokenStore 插件写 SharedPreferences，供后台 NotifyWorker 读取）；
+// 覆盖登录、刷新令牌、退出登录与持久化 rehydrate 恢复三种路径，原生平台才真正写入
+useAuthStore.subscribe((state, prev) => {
+  if (state.token !== prev.token) {
+    syncTokenToNative(state.token)
+  }
+})
