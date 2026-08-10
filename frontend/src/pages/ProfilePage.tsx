@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { RefreshCw } from 'lucide-react'
 import { me, changePassword, type MeResult } from '../api/auth'
 import { fetchMyProfile, updateMyAvatar, type Employee } from '../api/employee'
 import { uploadFile } from '../api/upload'
@@ -40,6 +41,7 @@ export default function ProfilePage() {
   const [pwd, setPwd] = useState<PwdForm>(emptyPwd)
   const [pwdError, setPwdError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
 
   // 头像上传
   const avatarInputRef = useRef<HTMLInputElement>(null)
@@ -287,6 +289,48 @@ export default function ProfilePage() {
           </form>
         </div>
       </div>
+
+      {/* 桌面端专属：检查更新（替代原「帮助→检查更新」菜单项；菜单栏已移除） */}
+      {typeof window !== 'undefined' && window.hrmsUpdater && (
+        <div className="card bg-base-100 shadow-sm">
+          <div className="card-body">
+            <h2 className="card-title text-base">
+              <RefreshCw className="h-4 w-4" />
+              软件更新
+            </h2>
+            <p className="text-sm text-base-content/70">
+              检查服务器是否有新版本（Windows 桌面端），有新版将提示下载安装。
+            </p>
+            <div className="mt-2">
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={async () => {
+                  try {
+                    setCheckingUpdate(true)
+                    const info = (await window.hrmsUpdater?.checkNow()) as
+                      | { has_update?: boolean; latest?: { version?: string } }
+                      | undefined
+                    if (info?.has_update) {
+                      toast.success(`发现新版本 ${info.latest?.version ?? ''}，请留意下载提示`)
+                    } else {
+                      toast.success('已是最新版本')
+                    }
+                  } catch {
+                    toast.error('检查更新失败，请稍后重试')
+                  } finally {
+                    setCheckingUpdate(false)
+                  }
+                }}
+                disabled={checkingUpdate}
+              >
+                {checkingUpdate && <span className="loading loading-spinner loading-sm" />}
+                检查更新
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

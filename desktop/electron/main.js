@@ -1,5 +1,5 @@
-// Electron 主进程：创建主窗口、单实例锁、中文菜单、加载前端、初始化更新模块
-const { app, BrowserWindow, Menu, dialog, shell, ipcMain, Notification } = require('electron')
+﻿// Electron 主进程：创建主窗口、单实例锁、中文菜单、加载前端、初始化更新模块
+const { app, BrowserWindow, Menu, shell, ipcMain, Notification } = require('electron')
 const path = require('path')
 const { pathToFileURL } = require('url')
 const updater = require('./updater')
@@ -32,7 +32,9 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     createWindow()
-    buildMenu()
+    // 彻底移除默认/自定义应用菜单栏（「文件/视图/帮助」及功能栏），窗口更简洁；
+    // 更新检查入口由渲染进程「个人中心→检查更新」按钮调用 window.hrmsUpdater.checkNow() 替代菜单项
+    Menu.setApplicationMenu(null)
     // 系统通知 IPC（Windows 通知中心），依赖上方 setAppUserModelId
     registerNotifyIpc(ipcMain, Notification)
     // 注册 IPC 处理器并启动「随机间隔更新检查」机制
@@ -47,7 +49,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     title: 'HRMS人力资源管理系统',
-    autoHideMenuBar: false,
+    autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true, // 渲染进程与主进程隔离
@@ -81,49 +83,6 @@ function createWindow() {
     mainWindow = null
     app.quit()
   })
-}
-
-// 中文菜单（文件/视图/帮助），替换默认英文菜单
-function buildMenu() {
-  const template = [
-    {
-      label: '文件',
-      submenu: [{ label: '退出', accelerator: 'Ctrl+Q', click: () => app.quit() }],
-    },
-    {
-      label: '视图',
-      submenu: [
-        { label: '重新加载', role: 'reload' },
-        { label: '开发者工具', role: 'toggleDevTools' },
-        { type: 'separator' },
-        { label: '实际大小', role: 'resetZoom' },
-        { label: '放大', role: 'zoomIn' },
-        { label: '缩小', role: 'zoomOut' },
-        { type: 'separator' },
-        { label: '全屏', role: 'togglefullscreen' },
-      ],
-    },
-    {
-      label: '帮助',
-      submenu: [
-        { label: '检查更新', click: () => updater.checkNow() },
-        { type: 'separator' },
-        {
-          label: '关于',
-          click: () => {
-            const pkg = require(path.join(app.getAppPath(), 'package.json'))
-            dialog.showMessageBox(mainWindow, {
-              type: 'info',
-              title: '关于',
-              message: 'HRMS人力资源管理系统',
-              detail: `桌面客户端 v${pkg.version} (build ${pkg.buildNumber})\n后端地址 http://115.29.197.130`,
-            })
-          },
-        },
-      ],
-    },
-  ]
-  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
 }
 
 // 兜底：所有窗口关闭时退出（Windows 下主窗口 closed 已直接 app.quit）
