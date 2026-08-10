@@ -3,6 +3,8 @@
 const { contextBridge, ipcRenderer } = require('electron')
 
 contextBridge.exposeInMainWorld('hrmsUpdater', {
+  // 弹出系统通知（Windows 通知中心），主进程新建原生 Notification
+  notify: (payload) => ipcRenderer.send('notify', payload),
   // 获取当前更新状态（state / 服务器最新版本 / 本机版本）
   getUpdateInfo: () => ipcRenderer.invoke('update:get-info'),
   // 手动触发一次更新检查（菜单「检查更新」调用）

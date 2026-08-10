@@ -23,6 +23,11 @@ export function fetchUnreadCount() {
   return client.get('/notifications/unread-count') as Promise<{ count: number }>
 }
 
+// 最近 N 条未读通知（按 id 倒序），供增量检测新通知（对比最新一条 id 是否变化）
+export function fetchRecentNotifications(limit = 5) {
+  return client.get('/notifications/recent', { params: { limit } }) as Promise<NotificationItem[]>
+}
+
 // 标记单条通知已读
 export function markRead(id: number) {
   return client.put(`/notifications/${id}/read`) as Promise<null>

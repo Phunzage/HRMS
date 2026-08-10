@@ -1,8 +1,9 @@
 // Electron 主进程：创建主窗口、单实例锁、中文菜单、加载前端、初始化更新模块
-const { app, BrowserWindow, Menu, dialog, shell } = require('electron')
+const { app, BrowserWindow, Menu, dialog, shell, ipcMain, Notification } = require('electron')
 const path = require('path')
 const { pathToFileURL } = require('url')
 const updater = require('./updater')
+const { registerNotifyIpc } = require('./notify')
 
 // 开发模式加载 vite dev server，生产模式直接加载线上前端（http 同源，避免 file:// 限制）
 const DEV_URL = 'http://localhost:5173'
@@ -32,6 +33,8 @@ if (!gotLock) {
   app.whenReady().then(() => {
     createWindow()
     buildMenu()
+    // 系统通知 IPC（Windows 通知中心），依赖上方 setAppUserModelId
+    registerNotifyIpc(ipcMain, Notification)
     // 注册 IPC 处理器并启动「随机间隔更新检查」机制
     updater.init(mainWindow)
   })

@@ -59,6 +59,17 @@ func (r *NotificationRepo) List(userID uint, isRead *bool, page, pageSize int) (
 	return items, total, nil
 }
 
+// RecentUnread 查询某用户最近 N 条未读通知（按 id 倒序），供客户端增量检测新通知
+func (r *NotificationRepo) RecentUnread(userID uint, limit int) ([]models.Notification, error) {
+	items := make([]models.Notification, 0)
+	err := r.db.Model(&models.Notification{}).
+		Where("user_id = ? AND is_read = ?", userID, false).
+		Order("id DESC").
+		Limit(limit).
+		Find(&items).Error
+	return items, err
+}
+
 // UnreadCount 查询某用户未读通知数量
 func (r *NotificationRepo) UnreadCount(userID uint) (int64, error) {
 	var count int64

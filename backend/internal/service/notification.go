@@ -73,6 +73,19 @@ func (s *NotificationService) UnreadCount(userID uint) (int64, error) {
 	return s.repo.UnreadCount(userID)
 }
 
+// RecentUnread 当前用户最近 N 条未读通知（按 id 倒序），客户端以此做增量检测：
+// 对比上次已知的最新 id 与本次返回的最新 id，不同则说明有新通知
+func (s *NotificationService) RecentUnread(userID uint, limit int) ([]models.Notification, error) {
+	// 防御非法 limit：0 或负数回退默认 5，超 50 封顶
+	if limit <= 0 {
+		limit = 5
+	}
+	if limit > 50 {
+		limit = 50
+	}
+	return s.repo.RecentUnread(userID, limit)
+}
+
 // MarkRead 标记单条通知已读，校验归属当前用户
 func (s *NotificationService) MarkRead(userID, id uint) error {
 	n, err := s.repo.FindByID(id)

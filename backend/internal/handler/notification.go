@@ -41,6 +41,23 @@ func (h *Notification) List(c *gin.Context) {
 	response.PageOK(c, items, total, page, pageSize)
 }
 
+// Recent 当前用户最近 N 条未读通知（按 id 倒序），供客户端增量检测新通知；
+// 无未读时返回空数组而非 null
+func (h *Notification) Recent(c *gin.Context) {
+	limit := 5
+	if v := c.Query("limit"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n > 0 {
+			limit = n
+		}
+	}
+	items, err := h.service.RecentUnread(middleware.GetUserID(c), limit)
+	if err != nil {
+		response.Error(c, http.StatusInternalServerError, 500, "获取最近通知失败")
+		return
+	}
+	response.OK(c, items)
+}
+
 // UnreadCount 当前用户未读通知数量（顶栏铃铛用）
 func (h *Notification) UnreadCount(c *gin.Context) {
 	count, err := h.service.UnreadCount(middleware.GetUserID(c))

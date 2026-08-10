@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { useAuthStore } from '../store/auth'
 import { usePerm } from '../hooks/usePerm'
+import { useSystemNotify } from '../hooks/useSystemNotify'
 import { useThemeStore } from '../store/theme'
 import { useBadgeStore } from '../store/badges'
 import {
@@ -161,6 +162,9 @@ export default function MainLayout() {
   const setBadges = useBadgeStore((s) => s.setBadges)
   const decrementNotification = useBadgeStore((s) => s.decrementNotification)
 
+  // 桌面端系统通知增量检测（Electron 环境弹 Windows 通知中心；网页版自动跳过）
+  const checkSystemNotify = useSystemNotify()
+
   // 移动端抽屉开关状态（lg 以下生效：默认关闭，点汉堡打开；桌面常驻侧边栏不受影响）
   const [sidebarOpen, setSidebarOpen] = useState(false)
 
@@ -171,6 +175,7 @@ export default function MainLayout() {
 
   // 角标轮询：每 30 秒 + 窗口聚焦时拉取 /badges，统一刷新侧边栏角标与铃铛未读数
   // （与旧 unread-count 轮询合并：unread_notifications 即铃铛未读数，避免重复请求）
+  // 顺带触发桌面端系统通知增量检测（/notifications/recent），新通知弹 Windows 通知中心
   useEffect(() => {
     let cancelled = false
     const load = () => {
@@ -179,6 +184,7 @@ export default function MainLayout() {
           if (!cancelled) setBadges(res)
         })
         .catch(() => undefined)
+      checkSystemNotify()
     }
     load()
     const timer = setInterval(load, 30000)
@@ -188,7 +194,7 @@ export default function MainLayout() {
       clearInterval(timer)
       window.removeEventListener('focus', load)
     }
-  }, [setBadges])
+  }, [setBadges, checkSystemNotify])
 
   // 打开面板时加载最新 10 条通知
   useEffect(() => {

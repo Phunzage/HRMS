@@ -199,6 +199,7 @@ func Register(r *gin.Engine, db *gorm.DB) {
 			notifications := authed.Group("/notifications")
 			{
 				notifications.GET("", notificationHandler.List)
+				notifications.GET("/recent", notificationHandler.Recent)
 				notifications.GET("/unread-count", notificationHandler.UnreadCount)
 				notifications.PUT("/:id/read", notificationHandler.MarkRead)
 				notifications.PUT("/read-all", notificationHandler.MarkAllRead)
