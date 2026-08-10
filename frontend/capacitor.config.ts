@@ -5,9 +5,12 @@ const config: CapacitorConfig = {
   appName: 'HRMS人力资源管理系统',
   webDir: 'dist',
   server: {
-    // 本地页面用 http://localhost（与线上 http://115.29.197.130 API 同协议，避免 https 页面请求 http API 的混合内容拦截）
+    // 远程加载模式：WebView 直接加载线上前端（与 Windows 桌面端 loadURL 一致，永远最新）。
+    // 缺点：需联网才能打开应用（离线不可用）；数据本身始终实时（同一后端）。
+    url: 'http://115.29.197.130',
+    // 允许导航到 API 域（同源，实际无跨域导航，保留兜底）
+    allowNavigation: ['115.29.197.130'],
     androidScheme: 'http',
-    // API 走 http 明文（暂无证书）
     allowMixedContent: true,
   },
 }
