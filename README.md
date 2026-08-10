@@ -15,73 +15,73 @@
 
 - **认证与权限**：图形验证码登录 / JWT 双 Token（access+refresh 滚动续期）/ 登录失败锁定 / 修改密码 / RBAC 权限点控制（30 个权限点，admin / hr / manager / employee 四角色 + 自定义角色与权限勾选）
 
-  <img src="C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810150720897.png" alt="image-20260810150720897"  />
+  <img src="assets/image-20260810150720897.png" alt="image-20260810150720897"  />
 
-  <img src="C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810150829316.png" alt="image-20260810150829316"  />
+  <img src="assets/image-20260810150829316.png" alt="image-20260810150829316"  />
 
 - **组织架构**：部门树形管理（负责人）、岗位管理（部门 / 级别）
 
 - **员工档案**：员工增删改查、自动生成工号（`EMP0001`）、可同时创建登录账号、头像上传、Excel 花名册导出
 
-  ![image-20260810150949372](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810150949372.png)
+  ![image-20260810150949372](assets/image-20260810150949372.png)
 
 - **考勤管理**：员工自助打卡（自动判定迟到/早退/正常）、HR 手工补录、补卡申请审批流、考勤月报（出勤/迟到/早退/旷工/请假汇总）
 
-  ![image-20260810151030731](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810151030731.png)
+  ![image-20260810151030731](assets/image-20260810151030731.png)
 
 - **可配置审批流**：通用审批流引擎，请假/补卡统一走 `approval_flows/steps/instances/tasks` 四表；admin 可配置审批级别（1~5 级）与每级审批人类型（部门经理 / 指定角色 / 指定岗位 / 按权限审批），默认两级（部门经理 → HR 角色池终审）
 
-  ![image-20260810151826368](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810151826368.png)
+  ![image-20260810151826368](assets/image-20260810151826368.png)
 
 - **请假审批**：提交请假（年假/病假/事假/产假/婚假/其他）→ 按配置逐级流转 → 通过/驳回，自动校验并扣减假期余额；**审批通过自动联动考勤标记请假**
 
-  ![image-20260810151302821](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810151302821.png)
+  ![image-20260810151302821](assets/image-20260810151302821.png)
 
-  <img src="C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810151343157.png" alt="image-20260810151343157"  />
+  <img src="assets/image-20260810151343157.png" alt="image-20260810151343157"  />
 
-  <img src="C:\Users\Phunzage\Documents\Code\HRMS\assets\Screenshot_20260810_155423.jpg" alt="Screenshot_20260810_155423" style="zoom: 25%;" />
+  <img src="assets/Screenshot_20260810_155423.jpg" alt="Screenshot_20260810_155423" style="zoom: 25%;" />
 
 - **薪酬管理**：按员工+月份生成工资单、**按月批量生成**、实发工资自动计算、`draft → confirmed → paid` 状态机、员工自助查看工资条、Excel 工资表导出
 
-  ![image-20260810151523098](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810151523098.png)
+  ![image-20260810151523098](assets/image-20260810151523098.png)
 
 - **招聘管理**：招聘职位发布与候选人管理（简历跟踪、面试状态流转）
 
-  ![image-20260810151709077](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810151709077.png)
+  ![image-20260810151709077](assets/image-20260810151709077.png)
 
 - **绩效管理**：考核周期（2026-H1/H2）、评分自动映射 S/A/B/C/D 评级、`draft → submitted → approved` 状态流
 
-  ![image-20260810151654654](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810151654654.png)
+  ![image-20260810151654654](assets/image-20260810151654654.png)
 
 - **公告管理**：公告发布/置顶/搜索，全员可见，已读联动，仪表盘展示最新公告
 
-  ![image-20260810152219789](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810152219789.png)
+  ![image-20260810152219789](assets/image-20260810152219789.png)
 
 - **站内通知 + 系统推送**：请假/补卡提交与审批结果实时站内通知（顶栏铃铛未读提醒）；Windows/Android 客户端支持**系统级通知**（增量检测，30s 轮询）
 
-  <img src="C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810152130166.png" alt="image-20260810152130166" style="zoom: 50%;" /><img src="C:\Users\Phunzage\Documents\Code\HRMS\assets\IMG_20260810_152607.jpg" alt="IMG_20260810_152607" style="zoom: 25%;" />
+  <img src="assets/image-20260810152130166.png" alt="image-20260810152130166" style="zoom: 50%;" /><img src="assets/IMG_20260810_152607.jpg" alt="IMG_20260810_152607" style="zoom: 25%;" />
 
 - **角标提醒**：待审批数 / 未读公告 / 未读通知导航角标（30s + 窗口聚焦轮询）
 
-  ![image-20260810152044937](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810152044937.png)
+  ![image-20260810152044937](assets/image-20260810152044937.png)
 
 - **统一待办中心**：/approvals 聚合待我审批与我处理的审批任务，审批进度时间线可追踪
 
-  ![image-20260810152417146](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810152417146.png)
+  ![image-20260810152417146](assets/image-20260810152417146.png)
 
 - **系统管理**：用户管理（角色分配/重置密码/禁用/数据范围）、角色管理（权限分组勾选）、审批流程配置（审批级别/审批人）、操作审计日志（登录/增删改全留痕）
 
-  ![image-20260810152508787](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810152508787.png)
+  ![image-20260810152508787](assets/image-20260810152508787.png)
 
 - **数据范围权限**：HR 可绑定负责部门，仅可见该部门及子部门数据（ResolveScope 机制保留；当前所有 hr 账号 dept_scope_id 为空 = 全公司口径）
 
 - **统计仪表盘**：在职人数、本月入职/离职、出勤率、待审批请假/薪酬、招聘/薪酬趋势、部门分布、最新公告
 
-  ![image-20260810150652379](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810150652379.png)
+  ![image-20260810150652379](assets/image-20260810150652379.png)
 
 - **暗色模式**：浅色/深色一键切换并持久化
 
-  ![image-20260810150627615](C:\Users\Phunzage\Documents\Code\HRMS\assets\image-20260810150627615.png)
+  ![image-20260810150627615](assets/image-20260810150627615.png)
 
 ## 技术栈
 
