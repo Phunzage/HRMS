@@ -426,7 +426,7 @@ export default function PerformancePage() {
           </Field>
           <Field label="评语" className="sm:col-span-2">
             <textarea
-              className="textarea textarea-bordered textarea-sm"
+              className="textarea textarea-bordered textarea-sm w-full"
               rows={3}
               value={form.comments}
               onChange={(e) => setForm({ ...form, comments: e.target.value })}

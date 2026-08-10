@@ -470,7 +470,7 @@ export default function LeavePage() {
           </Field>
           <Field label="请假事由" required className="sm:col-span-2">
             <textarea
-              className="textarea textarea-bordered textarea-sm"
+              className="textarea textarea-bordered textarea-sm w-full"
               rows={3}
               value={submitForm.reason}
               onChange={(e) => setSubmitForm({ ...submitForm, reason: e.target.value })}

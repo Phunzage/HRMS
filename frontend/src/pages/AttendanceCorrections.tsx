@@ -416,7 +416,7 @@ export default function AttendanceCorrections() {
           </Field>
           <Field label="补卡原因" required className="sm:col-span-2">
             <textarea
-              className="textarea textarea-bordered textarea-sm"
+              className="textarea textarea-bordered textarea-sm w-full"
               rows={3}
               value={form.reason}
               onChange={(e) => setForm({ ...form, reason: e.target.value })}

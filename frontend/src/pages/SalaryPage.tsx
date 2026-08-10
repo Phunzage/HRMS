@@ -472,7 +472,7 @@ export default function SalaryPage() {
           </Field>
           <Field label="备注" className="sm:col-span-2">
             <textarea
-              className="textarea textarea-bordered textarea-sm"
+              className="textarea textarea-bordered textarea-sm w-full"
               rows={2}
               value={form.remark}
               onChange={(e) => setForm({ ...form, remark: e.target.value })}

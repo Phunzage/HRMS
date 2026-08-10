@@ -682,7 +682,7 @@ export default function RecruitmentPage() {
           </Field>
           <Field label="任职要求" className="sm:col-span-2">
             <textarea
-              className="textarea textarea-bordered textarea-sm"
+              className="textarea textarea-bordered textarea-sm w-full"
               rows={3}
               value={jobForm.requirement}
               onChange={(e) => setJobForm({ ...jobForm, requirement: e.target.value })}
@@ -766,7 +766,7 @@ export default function RecruitmentPage() {
           )}
           <Field label="备注" className="sm:col-span-2">
             <textarea
-              className="textarea textarea-bordered textarea-sm"
+              className="textarea textarea-bordered textarea-sm w-full"
               rows={2}
               value={candForm.remark}
               onChange={(e) => setCandForm({ ...candForm, remark: e.target.value })}
