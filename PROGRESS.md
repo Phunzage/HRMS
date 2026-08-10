@@ -55,6 +55,7 @@
 | M42 | v1.0.2发布+Android改远程加载v1.0.3 | prompts/batch38M_E_release_102.md | ✅ 完成 | 8-10 11:00 |
 | M43 | 系统通知-后端recent+Windows端 | prompts/batch39A_system_notify_win.md | ✅ 完成 | 8-10 11:50 |
 | M44 | 系统通知-Android端+后台轮询v1.0.4 | prompts/batch39B_android_notify.md | ✅ 完成 | 8-10 12:20 |
+| M45 | 修复权限重启重置+Win重打包1.0.5 | prompts/batch39C_fix_seed_rebuild_win.md | ✅ 完成 | 8-10 13:15 |
 
 ## 已确认的环境
 
