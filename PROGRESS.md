@@ -52,6 +52,9 @@
 | M39 | 移动端适配-批次B 考勤/请假/审批 | prompts/batch38M_B_attendance_leave.md | ✅ 完成 | 8-10 09:55 |
 | M40 | 移动端适配-批次C 仪表盘/薪酬/绩效/招聘 | prompts/batch38M_C_dashboard_salary.md | ✅ 完成 | 8-10 10:10 |
 | M41 | 移动端适配-批次D 9个管理页 | prompts/batch38M_D_admin_pages.md | ✅ 完成 | 8-10 10:35 |
+| M42 | v1.0.2发布+Android改远程加载v1.0.3 | prompts/batch38M_E_release_102.md | ✅ 完成 | 8-10 11:00 |
+| M43 | 系统通知-后端recent+Windows端 | prompts/batch39A_system_notify_win.md | ✅ 完成 | 8-10 11:50 |
+| M44 | 系统通知-Android端+后台轮询v1.0.4 | prompts/batch39B_android_notify.md | ✅ 完成 | 8-10 12:20 |
 
 ## 已确认的环境
 
@@ -165,6 +168,15 @@
 - **批次 D（9 个管理页）**：员工/用户/岗位/角色/审计表格横滑真实可滑；部门树缩进响应式；角色权限网格移动单列；审批流程步骤行移动端堆叠；个人中心网格单列；公告 textarea 全宽（顺带修复 daisyUI textarea 不随 Field 拉伸的历史问题）
 - **验证**：每批 375×667 视口实测（累计 84+ 项全过，含无横向溢出、抽屉交互、弹窗可操作）+ 桌面 1440 回归；npm run build 全绿
 - **待办**：重新打包 Android APK v1.0.2（含移动端适配）与 Windows 包；LeavePage 请假事由 textarea 补 w-full（批次 D 遗留小项）
+
+## 十二轮（系统级推送通知）完成情况
+
+用户需求：审批/请假等业务通知要像微信 QQ 一样弹出**系统通知**，而非仅应用内可见。
+- **后端**：新增 `GET /api/v1/notifications/recent?limit=N`（未读通知按 id 倒序，供客户端增量检测）；已部署服务器（旧后端 404 → 新后端 401/正常返回）
+- **Windows（Electron）**：`notify.js` IPC 模块（`registerNotifyIpc`，isSupported 检查、标题/内容截断）+ preload 暴露 `notify`；前端 `useSystemNotify` hook（localStorage `hrms_last_notify_id_<username>` 增量检测、登录防重复、**网页版自动跳过**）；30s 轮询内顺带检测 → 新通知弹 Windows 通知中心；headless 打桩测试 10/10
+- **Android**：前台 `@capacitor/local-notifications`（JS 轮询检测 → LocalNotifications.schedule + Android 13 动态权限）；后台 `NotifyWorker`（WorkManager 15 分钟周期 + onResume 即时检查，前台只记基线不弹避免双弹）；`TokenStore` Capacitor 插件桥接 WebView token → SharedPreferences 供原生轮询；v1.0.4 已打包上传登记
+- **验证**：后端/前端 build+test 全绿；recent 接口公网 401→正常；Android 更新链路 1.0.4 可用；无真机（代码走查）
+- **遗留**：Android 13+ 需用户授权通知权限；通知点击仅打开 App（未跳具体页）；WorkManager 最小 15 分钟系统可延迟；App 被强停需手动打开恢复
 
 ## 二轮增强完成情况
 
