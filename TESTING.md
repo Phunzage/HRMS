@@ -133,7 +133,7 @@ curl -s "localhost:8080/api/v1/employees?page=1&page_size=5" -H "Authorization: 
 
 | 现象 | 处理 |
 |------|------|
-| 后端窗口报数据库连接失败 | 确认 PostgreSQL 服务已启动、backend/.env 密码正确（3143） |
+| 后端窗口报数据库连接失败 | 确认 PostgreSQL 服务已启动、backend/.env 密码正确（按实际配置） |
 | 前端 5173 被占用 | 关闭旧 dev server 或改 vite.config.ts 端口 |
 | 登录提示「验证码错误或已过期」 | 验证码一次即消费，重新点验证码图换一个再登录 |
 | 登录提示「用户名或密码错误」 | 确认使用上表账号；改过密码则用新密码 |

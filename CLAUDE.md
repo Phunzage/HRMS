@@ -8,7 +8,7 @@
 - 认证：JWT (golang-jwt/jwt/v5) + bcrypt
 
 ## 数据库连接
-- host: localhost:5432, db: hrms, user: postgres, password: 3143
+- host: localhost:5432, db: hrms, user: postgres, password: <按 .env 配置>
 - DSN: `postgres://postgres:3143@localhost:5432/hrms?sslmode=disable`
 - 配置放 `.env`（参考 `.env.example`），**不要把密码硬编码进源码**
 
@@ -36,7 +36,7 @@
 ## 运行方式
 - 本地开发：后端 `cd backend && go run ./cmd/server`；前端 `cd frontend && npm run dev`（默认 5173，vite proxy `/api` → `localhost:8080`）
 - 后端监听 8080
-- **生产部署**：已上线阿里云 ECS `http://115.29.197.130`（Ubuntu 24.04，Go systemd + Nginx 反代），业务使用走服务器；桌面端/Android 端加载线上前端，日常开发不涉及
+- **生产部署**：已上线阿里云 ECS（地址见 README 部署章节）（Ubuntu 24.04，Go systemd + Nginx 反代），业务使用走服务器；桌面端/Android 端加载线上前端，日常开发不涉及
 
 ## 质量要求
 - 每个任务完成后运行 `go build ./...`（后端）确保编译通过；前端任务运行 `npm run build` 确保构建通过

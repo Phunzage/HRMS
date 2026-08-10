@@ -60,7 +60,7 @@
 ## 已确认的环境
 
 - Go 1.25.7 / Node v24.13.0 / PostgreSQL 18.3（服务运行中）
-- 数据库 `hrms` 已创建（postgres/3143@localhost:5432）
+- 数据库 `hrms` 已创建（postgres@localhost:5432）
 - Claude Code 2.1.221，模型 deepseek-v4-flash（haiku 别名）
 - git 仓库已初始化，首个 commit：docs 架构设计
 
