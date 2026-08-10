@@ -55,10 +55,10 @@ export default function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-base-200 p-4">
+    <div className="flex min-h-screen items-center justify-center bg-base-200 px-4 py-6">
       <div className="card w-full max-w-sm bg-base-100 shadow-xl">
-        <div className="card-body">
-          <h2 className="card-title justify-center text-2xl">HRMS 人力资源管理系统</h2>
+        <div className="card-body max-sm:p-6">
+          <h2 className="card-title justify-center text-2xl max-sm:text-xl">HRMS 人力资源管理系统</h2>
           <p className="text-center text-sm text-base-content/60">请登录您的账号</p>
 
           <form onSubmit={handleSubmit} className="mt-4 flex flex-col gap-4">
@@ -101,7 +101,7 @@ export default function Login() {
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  className="input input-bordered w-full"
+                  className="input input-bordered w-full min-w-0"
                   placeholder="请输入验证码"
                   value={captchaCode}
                   onChange={(e) => setCaptchaCode(e.target.value)}
@@ -114,7 +114,7 @@ export default function Login() {
                     src={captchaImage}
                     alt="验证码"
                     title="点击刷新验证码"
-                    className="h-10 w-28 shrink-0 cursor-pointer rounded border border-base-300"
+                    className="h-10 w-28 max-w-full shrink-0 cursor-pointer rounded border border-base-300"
                     onClick={loadCaptcha}
                   />
                 ) : (

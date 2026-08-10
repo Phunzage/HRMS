@@ -20,6 +20,7 @@ import {
   Bell,
   Sun,
   Moon,
+  Menu,
   type LucideIcon,
 } from 'lucide-react'
 import { useAuthStore } from '../store/auth'
@@ -96,6 +97,55 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
     ? 'active bg-primary/15 font-semibold text-primary shadow-sm'
     : 'text-base-content/80 hover:bg-base-200 hover:text-base-content'
 
+// 侧边栏内容：logo + 菜单 + 系统管理分组 + 角标（桌面常驻 aside 与移动端抽屉共用，避免两处重复）
+// onNavigate：菜单项点击回调（移动抽屉里用于关闭抽屉；桌面 aside 不传）
+function SidebarContent({
+  visibleMenu,
+  visibleSystem,
+  badgeMap,
+  onNavigate,
+}: {
+  visibleMenu: MenuItem[]
+  visibleSystem: MenuItem[]
+  badgeMap: Record<keyof Badges, number>
+  onNavigate?: () => void
+}) {
+  return (
+    <>
+      <div className="flex h-16 items-center gap-2 border-b border-base-300 px-4">
+        <span className="text-xl font-bold">HRMS</span>
+        <span className="badge badge-primary badge-sm">人力资源</span>
+      </div>
+      <ul className="menu w-full gap-1 p-2">
+        {visibleMenu.map((item) => (
+          <li key={item.to}>
+            <NavLink to={item.to} end={item.end} className={navLinkClass} onClick={onNavigate}>
+              <item.icon className="h-5 w-5" />
+              {item.label}
+              {item.badge && badgeMap[item.badge] > 0 && (
+                <span className="badge badge-primary badge-sm ml-auto">{badgeMap[item.badge]}</span>
+              )}
+            </NavLink>
+          </li>
+        ))}
+        {visibleSystem.length > 0 && (
+          <>
+            <li className="menu-title mt-2">系统管理</li>
+            {visibleSystem.map((item) => (
+              <li key={item.to}>
+                <NavLink to={item.to} className={navLinkClass} onClick={onNavigate}>
+                  <item.icon className="h-5 w-5" />
+                  {item.label}
+                </NavLink>
+              </li>
+            ))}
+          </>
+        )}
+      </ul>
+    </>
+  )
+}
+
 export default function MainLayout() {
   const user = useAuthStore((s) => s.user)
   const logout = useAuthStore((s) => s.logout)
@@ -110,6 +160,9 @@ export default function MainLayout() {
   const unreadNotifications = useBadgeStore((s) => s.unread_notifications)
   const setBadges = useBadgeStore((s) => s.setBadges)
   const decrementNotification = useBadgeStore((s) => s.decrementNotification)
+
+  // 移动端抽屉开关状态（lg 以下生效：默认关闭，点汉堡打开；桌面常驻侧边栏不受影响）
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   // 站内通知：铃铛 + 下拉面板
   const [notifOpen, setNotifOpen] = useState(false)
@@ -206,52 +259,55 @@ export default function MainLayout() {
 
   return (
     <div className="flex min-h-screen">
-      {/* 侧边栏 */}
-      <aside className="w-60 shrink-0 border-r border-base-300 bg-base-100">
-        <div className="flex h-16 items-center gap-2 border-b border-base-300 px-4">
-          <span className="text-xl font-bold">HRMS</span>
-          <span className="badge badge-primary badge-sm">人力资源</span>
+      {/* 移动端抽屉遮罩层（lg 以下显示，点击关闭抽屉） */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 z-30 bg-black/50 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* 移动端侧边栏抽屉（lg 以下：默认 -translate-x-full 隐藏，点汉堡滑出；选中菜单项自动关闭） */}
+      <div
+        className={`fixed inset-y-0 left-0 z-40 w-60 transform transition-transform duration-300 lg:hidden ${
+          sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+        }`}
+      >
+        <div className="flex h-full flex-col overflow-y-auto border-r border-base-300 bg-base-100">
+          <SidebarContent
+            visibleMenu={visibleMenu}
+            visibleSystem={visibleSystem}
+            badgeMap={badgeMap}
+            onNavigate={() => setSidebarOpen(false)}
+          />
         </div>
-        <ul className="menu w-full gap-1 p-2">
-          {visibleMenu.map((item) => (
-            <li key={item.to}>
-              <NavLink
-                to={item.to}
-                end={item.end}
-                className={navLinkClass}
-              >
-                <item.icon className="h-5 w-5" />
-                {item.label}
-                {item.badge && badgeMap[item.badge] > 0 && (
-                  <span className="badge badge-primary badge-sm ml-auto">{badgeMap[item.badge]}</span>
-                )}
-              </NavLink>
-            </li>
-          ))}
-          {visibleSystem.length > 0 && (
-            <>
-              <li className="menu-title mt-2">系统管理</li>
-              {visibleSystem.map((item) => (
-                <li key={item.to}>
-                  <NavLink
-                    to={item.to}
-                    className={navLinkClass}
-                  >
-                    <item.icon className="h-5 w-5" />
-                    {item.label}
-                  </NavLink>
-                </li>
-              ))}
-            </>
-          )}
-        </ul>
+      </div>
+
+      {/* 桌面端常驻侧边栏（lg 及以上，布局与原来一致） */}
+      <aside className="hidden w-60 shrink-0 border-r border-base-300 bg-base-100 lg:block">
+        <SidebarContent
+          visibleMenu={visibleMenu}
+          visibleSystem={visibleSystem}
+          badgeMap={badgeMap}
+        />
       </aside>
 
       {/* 主区域 */}
       <div className="flex min-w-0 flex-1 flex-col">
         {/* 顶栏 */}
         <header className="flex h-16 shrink-0 items-center justify-between border-b border-base-300 bg-base-100 px-6">
-          <div className="text-lg font-medium">人力资源管理系统</div>
+          <div className="flex min-w-0 items-center gap-2">
+            {/* 汉堡按钮（仅移动端显示，打开抽屉侧边栏） */}
+            <button
+              type="button"
+              className="btn btn-ghost btn-circle lg:hidden"
+              onClick={() => setSidebarOpen(true)}
+              title="打开菜单"
+            >
+              <Menu className="h-5 w-5" />
+            </button>
+            <div className="truncate text-lg font-medium">人力资源管理系统</div>
+          </div>
           <div className="flex items-center gap-3">
             {/* 通知铃铛 */}
             <div className="relative" ref={notifRef}>
@@ -270,14 +326,15 @@ export default function MainLayout() {
               </button>
 
               {notifOpen && (
-                <div className="absolute right-0 z-30 mt-2 w-80 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-xl">
+                // 移动端固定视口定位（顶栏下方全宽面板）防窄屏溢出；sm 以上恢复桌面 absolute 右对齐下拉
+                <div className="fixed inset-x-4 top-20 z-40 overflow-hidden rounded-box border border-base-300 bg-base-100 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-80 sm:max-w-[90vw]">
                   <div className="flex items-center justify-between border-b border-base-300 px-3 py-2">
                     <span className="text-sm font-medium">通知</span>
                     <button type="button" className="btn btn-ghost btn-xs" onClick={handleMarkAllRead}>
                       全部已读
                     </button>
                   </div>
-                  <ul className="max-h-80 overflow-y-auto">
+                  <ul className="max-h-[60vh] overflow-y-auto sm:max-h-80">
                     {notifications.map((n) => (
                       <li key={n.id}>
                         <button
