@@ -145,25 +145,27 @@ export default function ApprovalsPage() {
         <span className="text-xs text-base-content/50">请假与补卡申请统一在此审批</span>
       </div>
 
-      {/* Tab */}
-      <div role="tablist" className="tabs tabs-boxed w-fit">
-        <button
-          type="button"
-          role="tab"
-          className={`tab ${activeTab === 'todo' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('todo')}
-        >
-          待我审批
-          {todo.length > 0 && <span className="badge badge-primary badge-sm ml-1">{todo.length}</span>}
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`tab ${activeTab === 'done' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('done')}
-        >
-          我处理的
-        </button>
+      {/* Tab（窄屏横向滚动） */}
+      <div className="overflow-x-auto">
+        <div role="tablist" className="tabs tabs-boxed w-max">
+          <button
+            type="button"
+            role="tab"
+            className={`tab ${activeTab === 'todo' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('todo')}
+          >
+            待我审批
+            {todo.length > 0 && <span className="badge badge-primary badge-sm ml-1">{todo.length}</span>}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className={`tab ${activeTab === 'done' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('done')}
+          >
+            我处理的
+          </button>
+        </div>
       </div>
 
       {/* 列表 */}
@@ -198,7 +200,8 @@ export default function ApprovalsPage() {
         onClose={closeModal}
         footer={
           isTodoTab ? (
-            <>
+            // 移动端按钮纵向堆叠全宽，桌面恢复同行
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
               <button
                 type="button"
                 className="btn btn-error"
@@ -217,7 +220,7 @@ export default function ApprovalsPage() {
                 {acting && <span className="loading loading-spinner loading-sm" />}
                 通过
               </button>
-            </>
+            </div>
           ) : undefined
         }
       >

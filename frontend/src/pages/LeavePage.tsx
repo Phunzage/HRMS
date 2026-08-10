@@ -232,13 +232,16 @@ export default function LeavePage() {
     setProgressLeaveId(null)
   }
 
-  // 余额徽章
+  // 余额卡片：移动端 1 列，桌面多列
   const balanceBadges = (
-    <div className="flex flex-wrap gap-2">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
       {balance.map((b) => (
-        <div key={b.leave_type} className="badge badge-lg badge-outline gap-1">
-          <span>{LEAVE_TYPE[b.leave_type] ?? b.leave_type}</span>
-          <span className="text-success">余 {formatDays(b.remaining)}</span>
+        <div
+          key={b.leave_type}
+          className="flex items-center justify-between gap-2 rounded-box border border-base-300 bg-base-100 px-3 py-2"
+        >
+          <span className="text-sm font-medium">{LEAVE_TYPE[b.leave_type] ?? b.leave_type}</span>
+          <span className="text-sm font-semibold text-success">余 {formatDays(b.remaining)}</span>
         </div>
       ))}
     </div>
@@ -254,36 +257,38 @@ export default function LeavePage() {
         </div>
       </div>
 
-      {/* Tab */}
-      <div role="tablist" className="tabs tabs-boxed w-fit">
-        <button
-          type="button"
-          role="tab"
-          className={`tab ${activeTab === 'mine' ? 'tab-active' : ''}`}
-          onClick={() => switchTab('mine')}
-        >
-          我的申请
-        </button>
-        {showTodo && (
+      {/* Tab（窄屏横向滚动） */}
+      <div className="overflow-x-auto">
+        <div role="tablist" className="tabs tabs-boxed w-max">
           <button
             type="button"
             role="tab"
-            className={`tab ${activeTab === 'todo' ? 'tab-active' : ''}`}
-            onClick={() => switchTab('todo')}
+            className={`tab ${activeTab === 'mine' ? 'tab-active' : ''}`}
+            onClick={() => switchTab('mine')}
           >
-            待我审批
+            我的申请
           </button>
-        )}
-        {showAll && (
-          <button
-            type="button"
-            role="tab"
-            className={`tab ${activeTab === 'all' ? 'tab-active' : ''}`}
-            onClick={() => switchTab('all')}
-          >
-            全部申请
-          </button>
-        )}
+          {showTodo && (
+            <button
+              type="button"
+              role="tab"
+              className={`tab ${activeTab === 'todo' ? 'tab-active' : ''}`}
+              onClick={() => switchTab('todo')}
+            >
+              待我审批
+            </button>
+          )}
+          {showAll && (
+            <button
+              type="button"
+              role="tab"
+              className={`tab ${activeTab === 'all' ? 'tab-active' : ''}`}
+              onClick={() => switchTab('all')}
+            >
+              全部申请
+            </button>
+          )}
+        </div>
       </div>
 
       {/* 工具栏（我的申请：提交按钮 / 全部申请：状态筛选） */}
@@ -415,7 +420,7 @@ export default function LeavePage() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="请假类型" required>
             <select
               className="select select-bordered select-sm"
@@ -463,7 +468,7 @@ export default function LeavePage() {
               required
             />
           </Field>
-          <Field label="请假事由" required className="col-span-2">
+          <Field label="请假事由" required className="sm:col-span-2">
             <textarea
               className="textarea textarea-bordered textarea-sm"
               rows={3}

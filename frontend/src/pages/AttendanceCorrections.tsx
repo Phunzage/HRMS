@@ -384,7 +384,7 @@ export default function AttendanceCorrections() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="补卡日期" required>
             <input
               type="date"
@@ -414,7 +414,7 @@ export default function AttendanceCorrections() {
               required
             />
           </Field>
-          <Field label="补卡原因" required className="col-span-2">
+          <Field label="补卡原因" required className="sm:col-span-2">
             <textarea
               className="textarea textarea-bordered textarea-sm"
               rows={3}

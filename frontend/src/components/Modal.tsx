@@ -15,7 +15,7 @@ export default function Modal({ open, title, children, footer, onClose }: ModalP
   if (!open) return null
   return (
     <dialog className="modal modal-open" onClose={onClose}>
-      <div className="modal-box max-h-[85vh] w-full max-w-2xl">
+      <div className="modal-box max-h-[85vh] w-full max-w-[min(95vw,42rem)]">
         <div className="flex items-center justify-between border-b border-base-300 pb-3">
           <h3 className="text-lg font-bold">{title}</h3>
           <button type="button" className="btn btn-sm btn-circle btn-ghost" onClick={onClose}>

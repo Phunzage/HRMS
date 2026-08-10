@@ -185,34 +185,36 @@ export default function AttendancePage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Tab 栏 */}
-      <div role="tablist" className="tabs tabs-boxed w-fit">
-        <button
-          type="button"
-          role="tab"
-          className={`tab ${activeTab === 'records' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('records')}
-        >
-          考勤记录
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`tab ${activeTab === 'corrections' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('corrections')}
-        >
-          补卡申请
-        </button>
-        {canReport && (
+      {/* Tab 栏（窄屏横向滚动） */}
+      <div className="overflow-x-auto">
+        <div role="tablist" className="tabs tabs-boxed w-max">
           <button
             type="button"
             role="tab"
-            className={`tab ${activeTab === 'report' ? 'tab-active' : ''}`}
-            onClick={() => setActiveTab('report')}
+            className={`tab ${activeTab === 'records' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('records')}
           >
-            考勤月报
+            考勤记录
           </button>
-        )}
+          <button
+            type="button"
+            role="tab"
+            className={`tab ${activeTab === 'corrections' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('corrections')}
+          >
+            补卡申请
+          </button>
+          {canReport && (
+            <button
+              type="button"
+              role="tab"
+              className={`tab ${activeTab === 'report' ? 'tab-active' : ''}`}
+              onClick={() => setActiveTab('report')}
+            >
+              考勤月报
+            </button>
+          )}
+        </div>
       </div>
 
       {activeTab === 'corrections' && <AttendanceCorrections />}
@@ -279,7 +281,7 @@ export default function AttendancePage() {
             </select>
           </label>
 
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
             {canCheck && (
               <>
                 <button
@@ -397,7 +399,7 @@ export default function AttendancePage() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="员工" required>
             <select
               className="select select-bordered select-sm"
@@ -450,7 +452,7 @@ export default function AttendancePage() {
               <option value="absent">缺勤</option>
             </select>
           </Field>
-          <Field label="备注" className="col-span-2">
+          <Field label="备注" className="sm:col-span-2">
             <textarea
               className="textarea textarea-bordered textarea-sm"
               rows={2}
