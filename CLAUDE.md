@@ -27,10 +27,16 @@
 - Tailwind + daisyUI 组件库（`theme: "light"`）
 - 中文界面
 
+## 目录结构
+- `backend/` — Go 后端（分层：handler → service → repository → gorm）
+- `frontend/` — React 前端；`frontend/android/` 为 Capacitor Android 工程（远程加载模式，WebView 指向线上前端）
+- `desktop/` — Electron Windows 桌面端（electron/main.js、updater.js、notify.js）
+- `prompts/` — Claude Code 批次提示词（开发过程产物）
+
 ## 运行方式
-- 后端：`cd backend && go run ./cmd/server`
-- 前端：`cd frontend && npm run dev`（默认 5173，vite proxy `/api` → `localhost:8080`）
+- 本地开发：后端 `cd backend && go run ./cmd/server`；前端 `cd frontend && npm run dev`（默认 5173，vite proxy `/api` → `localhost:8080`）
 - 后端监听 8080
+- **生产部署**：已上线阿里云 ECS `http://115.29.197.130`（Ubuntu 24.04，Go systemd + Nginx 反代），业务使用走服务器；桌面端/Android 端加载线上前端，日常开发不涉及
 
 ## 质量要求
 - 每个任务完成后运行 `go build ./...`（后端）确保编译通过；前端任务运行 `npm run build` 确保构建通过

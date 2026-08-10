@@ -96,7 +96,7 @@ func seedApprovalFlows(db *gorm.DB) error {
 // seedRoles 写入内置角色
 func seedRoles(db *gorm.DB) error {
 	roles := []models.Role{
-		{Name: "管理员", Code: "admin", Description: "系统管理员，拥有全部权限"},
+		{Name: "管理员", Code: "admin", Description: "系统管理员：用户/角色/审计管理 + 公告 + 审批流程配置（业务权限按角色配置）"},
 		{Name: "人事", Code: "hr", Description: "人事专员，负责人事/考勤/薪酬"},
 		{Name: "经理", Code: "manager", Description: "部门经理，负责本部门审批"},
 		{Name: "员工", Code: "employee", Description: "普通员工，自助服务"},
