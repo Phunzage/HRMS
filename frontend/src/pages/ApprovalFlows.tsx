@@ -335,7 +335,7 @@ export default function ApprovalFlowsPage() {
           {flows.map((flow) => (
             <div key={flow.code} className="card bg-base-100 shadow-sm">
               <div className="card-body p-4">
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <h3 className="text-base font-semibold">{flow.name}</h3>
                   {flow.status === 'active' ? (
                     <span className="badge badge-success badge-sm">启用</span>
@@ -344,7 +344,7 @@ export default function ApprovalFlowsPage() {
                   )}
                   <button
                     type="button"
-                    className="btn btn-ghost btn-sm ml-auto"
+                    className="btn btn-ghost btn-sm ml-auto shrink-0"
                     onClick={() => openEdit(flow)}
                   >
                     <Workflow className="h-4 w-4" />
@@ -359,7 +359,7 @@ export default function ApprovalFlowsPage() {
                         key={s.id ?? `${flow.code}-${s.step_order}`}
                         className="rounded-box border border-base-200 px-3 py-2"
                       >
-                        <div className="flex items-center gap-2">
+                        <div className="flex flex-wrap items-center gap-2">
                           <span className="badge badge-ghost badge-sm">{s.step_order}</span>
                           <span className="text-sm font-medium">{s.name}</span>
                           <span className={`badge badge-sm ${TYPE_BADGE[s.approver_type]}`}>
@@ -413,8 +413,8 @@ export default function ApprovalFlowsPage() {
         }
       >
         <div className="flex flex-col gap-3">
-          {/* 列头说明 */}
-          <div className="grid grid-cols-[2.5rem_1fr_9rem_2.5rem] items-center gap-2 px-1 text-xs text-base-content/50">
+          {/* 列头说明（桌面显示，移动端步骤行自动堆叠） */}
+          <div className="hidden grid-cols-[2.5rem_1fr_9rem_2.5rem] items-center gap-2 px-1 text-xs text-base-content/50 sm:grid">
             <span>序号</span>
             <span>步骤名称</span>
             <span>审批人</span>
@@ -423,7 +423,7 @@ export default function ApprovalFlowsPage() {
 
           {draftSteps.map((s) => (
             <div key={s.key} className="rounded-box border border-base-300 p-2">
-              <div className="grid grid-cols-[2.5rem_1fr_9rem_2.5rem] items-center gap-2">
+              <div className="grid grid-cols-[2.5rem_1fr_2.5rem] items-center gap-2 sm:grid-cols-[2.5rem_1fr_9rem_2.5rem]">
                 <span className="badge badge-ghost justify-center">{s.step_order}</span>
                 <input
                   type="text"
@@ -432,8 +432,17 @@ export default function ApprovalFlowsPage() {
                   value={s.name}
                   onChange={(e) => updateStep(s.key, { name: e.target.value, nameEdited: true })}
                 />
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-sm btn-circle justify-self-end text-error sm:col-start-4 sm:row-start-1"
+                  disabled={draftSteps.length <= 1}
+                  onClick={() => removeStep(s.key)}
+                  title="删除本级"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </button>
                 <select
-                  className="select select-bordered select-sm w-full"
+                  className="col-span-3 select select-bordered select-sm w-full sm:col-span-1 sm:col-start-3 sm:row-start-1"
                   value={s.approver_type}
                   onChange={(e) => handleTypeChange(s.key, e.target.value as StepDraft['approver_type'])}
                 >
@@ -447,15 +456,6 @@ export default function ApprovalFlowsPage() {
                     </option>
                   ))}
                 </select>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-sm btn-circle justify-self-end text-error"
-                  disabled={draftSteps.length <= 1}
-                  onClick={() => removeStep(s.key)}
-                  title="删除本级"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
               </div>
 
               {/* 按权限审批：权限点下拉 + 可审批角色 badge */}

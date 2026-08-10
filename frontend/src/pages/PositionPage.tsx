@@ -224,7 +224,7 @@ export default function PositionPage() {
                       <td className="max-w-40 truncate text-base-content/60">{pos.remark || '-'}</td>
                       {canManage && (
                         <td className="text-right">
-                          <div className="flex justify-end gap-1">
+                          <div className="flex flex-wrap justify-end gap-1">
                             <button type="button" className="btn btn-ghost btn-xs" onClick={() => openEdit(pos)}>
                               编辑
                             </button>
@@ -272,7 +272,7 @@ export default function PositionPage() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="岗位名称" required>
             <input
               type="text"
@@ -315,9 +315,9 @@ export default function PositionPage() {
               onChange={(e) => setForm({ ...form, level: Number(e.target.value) })}
             />
           </Field>
-          <Field label="备注" className="col-span-2">
+          <Field label="备注" className="sm:col-span-2">
             <textarea
-              className="textarea textarea-bordered textarea-sm"
+              className="textarea textarea-bordered textarea-sm w-full"
               rows={2}
               value={form.remark}
               onChange={(e) => setForm({ ...form, remark: e.target.value })}

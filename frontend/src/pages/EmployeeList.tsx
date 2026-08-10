@@ -311,7 +311,7 @@ export default function EmployeeList() {
                       </td>
                       {canManage && (
                         <td className="text-right">
-                          <div className="flex justify-end gap-1">
+                          <div className="flex flex-wrap justify-end gap-1">
                             <button type="button" className="btn btn-ghost btn-xs" onClick={() => openEdit(emp)}>
                               编辑
                             </button>
@@ -359,7 +359,7 @@ export default function EmployeeList() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="姓名" required>
             <input
               type="text"
@@ -461,7 +461,7 @@ export default function EmployeeList() {
               <option value={2}>离职</option>
             </select>
           </Field>
-          <Field label="家庭住址" className="col-span-2">
+          <Field label="家庭住址" className="sm:col-span-2">
             <input
               type="text"
               className="input input-bordered input-sm"
@@ -469,9 +469,9 @@ export default function EmployeeList() {
               onChange={(e) => setForm({ ...form, address: e.target.value })}
             />
           </Field>
-          <Field label="备注" className="col-span-2">
+          <Field label="备注" className="sm:col-span-2">
             <textarea
-              className="textarea textarea-bordered textarea-sm"
+              className="textarea textarea-bordered textarea-sm w-full"
               rows={2}
               value={form.remark}
               onChange={(e) => setForm({ ...form, remark: e.target.value })}
@@ -480,7 +480,7 @@ export default function EmployeeList() {
 
           {!editing && (
             <>
-              <label className="label cursor-pointer gap-2 col-span-2 justify-start">
+              <label className="label cursor-pointer gap-2 sm:col-span-2 justify-start">
                 <input
                   type="checkbox"
                   className="checkbox checkbox-sm"
@@ -490,7 +490,7 @@ export default function EmployeeList() {
                 <span className="label-text">同时创建系统账号（默认密码 123456）</span>
               </label>
               {form.create_user && (
-                <Field label="账号用户名（留空自动按姓名拼音生成）" className="col-span-2">
+                <Field label="账号用户名（留空自动按姓名拼音生成）" className="sm:col-span-2">
                   <input
                     type="text"
                     className="input input-bordered input-sm"

@@ -241,7 +241,7 @@ export default function RolesPage() {
                       </td>
                       {canManage && (
                         <td className="text-right">
-                          <div className="flex justify-end gap-1">
+                          <div className="flex flex-wrap justify-end gap-1">
                             <button type="button" className="btn btn-ghost btn-xs" onClick={() => openEdit(item)}>
                               编辑
                             </button>
@@ -291,7 +291,7 @@ export default function RolesPage() {
         }
       >
         <div className="flex flex-col gap-4">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Field label="角色名称" required>
               <input
                 type="text"
@@ -312,7 +312,7 @@ export default function RolesPage() {
                 required
               />
             </Field>
-            <Field label="描述" className="col-span-2">
+            <Field label="描述" className="sm:col-span-2">
               <input
                 type="text"
                 className="input input-bordered input-sm"
@@ -332,7 +332,7 @@ export default function RolesPage() {
                 {permGroups.map((group) => (
                   <div key={group.label} className="rounded-box border border-base-300 p-3">
                     <div className="mb-2 text-sm font-semibold">{group.label}</div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       {group.items.map((p) => (
                         <label key={p.code} className="flex cursor-pointer items-center gap-2">
                           <input

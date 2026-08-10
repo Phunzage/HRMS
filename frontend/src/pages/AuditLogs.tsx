@@ -159,7 +159,7 @@ export default function AuditLogsPage() {
           </select>
           <input
             type="text"
-            className="input input-bordered input-sm w-40"
+            className="input input-bordered input-sm w-full sm:w-40"
             placeholder="操作者用户名"
             value={draft.username}
             onChange={(e) => setDraft({ ...draft, username: e.target.value })}
@@ -167,24 +167,24 @@ export default function AuditLogsPage() {
               if (e.key === 'Enter') handleQuery()
             }}
           />
-          <label className="form-control">
+          <label className="form-control flex-1 basis-40 sm:basis-auto">
             <div className="label">
               <span className="label-text">开始日期</span>
             </div>
             <input
               type="date"
-              className="input input-bordered input-sm"
+              className="input input-bordered input-sm w-full"
               value={draft.start_date}
               onChange={(e) => setDraft({ ...draft, start_date: e.target.value })}
             />
           </label>
-          <label className="form-control">
+          <label className="form-control flex-1 basis-40 sm:basis-auto">
             <div className="label">
               <span className="label-text">结束日期</span>
             </div>
             <input
               type="date"
-              className="input input-bordered input-sm"
+              className="input input-bordered input-sm w-full"
               value={draft.end_date}
               onChange={(e) => setDraft({ ...draft, end_date: e.target.value })}
             />

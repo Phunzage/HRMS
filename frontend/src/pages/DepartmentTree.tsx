@@ -47,8 +47,8 @@ function DeptNode({ node, level, canManage, managerMap, onAdd, onEdit, onDelete 
   return (
     <div>
       <div
-        className="flex items-center gap-2 rounded px-2 py-1.5 hover:bg-base-200"
-        style={{ paddingLeft: level * 24 + 8 }}
+        className="flex flex-wrap items-center gap-2 rounded px-2 py-1.5 hover:bg-base-200"
+        style={{ paddingLeft: `calc(${level} * min(24px, 12px + 2vw) + 8px)` }}
       >
         <span className="text-base-content/50">
           {node.children?.length ? (
@@ -58,12 +58,12 @@ function DeptNode({ node, level, canManage, managerMap, onAdd, onEdit, onDelete 
           )}
         </span>
         <span className="font-medium">{node.name}</span>
-        <span className="text-xs text-base-content/50">
+        <span className="hidden text-xs text-base-content/50 sm:inline">
           负责人：{node.manager_id ? managerMap[node.manager_id] || `#${node.manager_id}` : '未设置'}
         </span>
-        <span className="badge badge-sm badge-ghost">排序 {node.sort_order}</span>
+        <span className="badge badge-sm badge-ghost hidden sm:inline-flex">排序 {node.sort_order}</span>
         {canManage && (
-          <span className="ml-auto flex gap-1">
+          <span className="ml-auto flex flex-wrap gap-1">
             <button type="button" className="btn btn-ghost btn-xs" onClick={() => onAdd(node)}>
               新增子部门
             </button>
@@ -263,7 +263,7 @@ export default function DepartmentTree() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="部门名称" required>
             <input
               type="text"
@@ -311,9 +311,9 @@ export default function DepartmentTree() {
               onChange={(e) => setForm({ ...form, sort_order: Number(e.target.value) })}
             />
           </Field>
-          <Field label="备注" className="col-span-2">
+          <Field label="备注" className="sm:col-span-2">
             <textarea
-              className="textarea textarea-bordered textarea-sm"
+              className="textarea textarea-bordered textarea-sm w-full"
               rows={2}
               value={form.remark}
               onChange={(e) => setForm({ ...form, remark: e.target.value })}

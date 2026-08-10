@@ -325,7 +325,7 @@ export default function UsersPage() {
                       <td className="text-base-content/60">{formatDateTime(user.created_at)}</td>
                       {canManage && (
                         <td className="text-right">
-                          <div className="flex justify-end gap-1">
+                          <div className="flex flex-wrap justify-end gap-1">
                             <button type="button" className="btn btn-ghost btn-xs" onClick={() => openEdit(user)}>
                               编辑
                             </button>
@@ -380,7 +380,7 @@ export default function UsersPage() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="用户名" required>
             <input
               type="text"

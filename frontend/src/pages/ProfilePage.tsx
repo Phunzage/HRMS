@@ -123,7 +123,7 @@ export default function ProfilePage() {
       <div className="card bg-base-100 shadow-sm">
         <div className="card-body">
           <h3 className="card-title text-base">账号信息</h3>
-          <div className="grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 md:grid-cols-4">
             <div>
               <div className="text-base-content/50">用户名</div>
               <div className="font-medium">{meInfo?.username ?? user?.username ?? '-'}</div>
@@ -140,7 +140,7 @@ export default function ProfilePage() {
             </div>
             <div>
               <div className="text-base-content/50">邮箱</div>
-              <div className="font-medium">{meInfo?.email || '-'}</div>
+              <div className="break-all font-medium">{meInfo?.email || '-'}</div>
             </div>
           </div>
         </div>
@@ -186,7 +186,7 @@ export default function ProfilePage() {
                 </div>
               </div>
 
-              <div className="mt-4 grid grid-cols-2 gap-4 text-sm md:grid-cols-4">
+              <div className="mt-4 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2 md:grid-cols-4">
               <div>
                 <div className="text-base-content/50">工号</div>
                 <div className="font-mono font-medium">{profile.emp_no}</div>
@@ -219,7 +219,7 @@ export default function ProfilePage() {
               </div>
               <div>
                 <div className="text-base-content/50">邮箱</div>
-                <div>{profile.email || '-'}</div>
+                <div className="break-all">{profile.email || '-'}</div>
               </div>
               <div>
                 <div className="text-base-content/50">入职日期</div>
@@ -229,9 +229,9 @@ export default function ProfilePage() {
                 <div className="text-base-content/50">出生日期</div>
                 <div>{formatDate(profile.birth_date)}</div>
               </div>
-              <div className="col-span-2">
+              <div className="sm:col-span-2">
                 <div className="text-base-content/50">地址</div>
-                <div>{profile.address || '-'}</div>
+                <div className="break-all">{profile.address || '-'}</div>
               </div>
             </div>
             </>

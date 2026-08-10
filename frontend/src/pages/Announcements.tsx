@@ -204,7 +204,7 @@ export default function AnnouncementsPage() {
                 <li key={item.id} className="py-4 first:pt-0 last:pb-0">
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         {item.is_pinned && (
                           <span className="badge badge-error badge-sm gap-0.5">
                             <Pin className="h-3 w-3" />
@@ -212,7 +212,7 @@ export default function AnnouncementsPage() {
                           </span>
                         )}
                         {!item.is_read && <span className="badge badge-primary badge-xs">新</span>}
-                        <h3 className={`text-base ${item.is_read ? 'font-medium' : 'font-semibold'}`}>{item.title}</h3>
+                        <h3 className={`min-w-0 text-base ${item.is_read ? 'font-medium' : 'font-semibold'}`}>{item.title}</h3>
                       </div>
                       <div className="mt-1 text-xs text-base-content/50">
                         {item.publisher_name || `#${item.publisher_id}`} · {formatDateTime(item.published_at)}
@@ -283,7 +283,7 @@ export default function AnnouncementsPage() {
           </Field>
           <Field label="内容" required>
             <textarea
-              className="textarea textarea-bordered textarea-sm"
+              className="textarea textarea-bordered textarea-sm w-full"
               rows={6}
               value={form.content}
               onChange={(e) => setForm({ ...form, content: e.target.value })}
