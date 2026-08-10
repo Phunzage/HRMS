@@ -261,7 +261,7 @@ export default function PerformancePage() {
             </label>
           )}
           {canOperate && (
-            <div className="ml-auto">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
               <button type="button" className="btn btn-primary btn-sm" onClick={openCreate}>
                 ＋ 新增绩效
               </button>
@@ -315,7 +315,7 @@ export default function PerformancePage() {
                       <td className="max-w-48 truncate text-base-content/60">{item.comments || '-'}</td>
                       {canOperate && (
                         <td className="text-right">
-                          <div className="flex justify-end gap-1">
+                          <div className="flex flex-wrap justify-end gap-1">
                             {item.status === 'draft' && (
                               <>
                                 <button type="button" className="btn btn-ghost btn-xs" onClick={() => openEdit(item)}>
@@ -379,7 +379,7 @@ export default function PerformancePage() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="员工" required>
             <select
               className="select select-bordered select-sm"
@@ -424,7 +424,7 @@ export default function PerformancePage() {
               required
             />
           </Field>
-          <Field label="评语" className="col-span-2">
+          <Field label="评语" className="sm:col-span-2">
             <textarea
               className="textarea textarea-bordered textarea-sm"
               rows={3}

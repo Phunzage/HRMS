@@ -147,8 +147,8 @@ export default function Dashboard() {
 
   return (
     <div className="flex flex-col gap-6">
-      {/* 工具栏：标题 + 刷新 */}
-      <div className="flex items-center justify-between">
+      {/* 工具栏：标题 + 刷新（窄屏换行防挤压） */}
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-xl font-bold">数据概览</h2>
         <button
           type="button"
@@ -166,8 +166,8 @@ export default function Dashboard() {
         </button>
       </div>
 
-      {/* 统计卡片 */}
-      <div className="grid grid-cols-2 gap-4 md:grid-cols-3 xl:grid-cols-5">
+      {/* 统计卡片：移动 1 列，桌面保持 5 列 */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         {cards.map((c) => (
           <StatCardView key={c.label} {...c} />
         ))}

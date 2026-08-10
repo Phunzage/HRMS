@@ -256,7 +256,7 @@ export default function SalaryPage() {
             </select>
           </label>
           {canManage && (
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
               <button type="button" className="btn btn-ghost btn-sm" onClick={() => setBatchOpen(true)}>
                 批量生成
               </button>
@@ -312,7 +312,7 @@ export default function SalaryPage() {
                       </td>
                       {canManage && (
                         <td className="text-right">
-                          <div className="flex justify-end gap-1">
+                          <div className="flex flex-wrap justify-end gap-1">
                             {record.status === 'draft' && (
                               <>
                                 <button type="button" className="btn btn-ghost btn-xs" onClick={() => openEdit(record)}>
@@ -402,7 +402,7 @@ export default function SalaryPage() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Field label="员工" required>
             <select
               className="select select-bordered select-sm"
@@ -470,7 +470,7 @@ export default function SalaryPage() {
               onChange={(e) => setForm({ ...form, deduction: e.target.value })}
             />
           </Field>
-          <Field label="备注" className="col-span-2">
+          <Field label="备注" className="sm:col-span-2">
             <textarea
               className="textarea textarea-bordered textarea-sm"
               rows={2}

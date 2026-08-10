@@ -301,24 +301,26 @@ export default function RecruitmentPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Tab */}
-      <div role="tablist" className="tabs tabs-boxed w-fit">
-        <button
-          type="button"
-          role="tab"
-          className={`tab ${activeTab === 'jobs' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('jobs')}
-        >
-          招聘职位
-        </button>
-        <button
-          type="button"
-          role="tab"
-          className={`tab ${activeTab === 'candidates' ? 'tab-active' : ''}`}
-          onClick={() => setActiveTab('candidates')}
-        >
-          候选人
-        </button>
+      {/* Tab（窄屏横向滚动） */}
+      <div className="overflow-x-auto">
+        <div role="tablist" className="tabs tabs-boxed w-max">
+          <button
+            type="button"
+            role="tab"
+            className={`tab ${activeTab === 'jobs' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('jobs')}
+          >
+            招聘职位
+          </button>
+          <button
+            type="button"
+            role="tab"
+            className={`tab ${activeTab === 'candidates' ? 'tab-active' : ''}`}
+            onClick={() => setActiveTab('candidates')}
+          >
+            候选人
+          </button>
+        </div>
       </div>
 
       {activeTab === 'jobs' ? (
@@ -407,7 +409,7 @@ export default function RecruitmentPage() {
                           </td>
                           {canManage && (
                             <td className="text-right">
-                              <div className="flex justify-end gap-1">
+                              <div className="flex flex-wrap justify-end gap-1">
                                 <button type="button" className="btn btn-ghost btn-xs" onClick={() => openJobEdit(job)}>
                                   编辑
                                 </button>
@@ -562,7 +564,7 @@ export default function RecruitmentPage() {
                           </td>
                           {canManage && (
                             <td className="text-right">
-                              <div className="flex justify-end gap-1">
+                              <div className="flex flex-wrap justify-end gap-1">
                                 <button type="button" className="btn btn-ghost btn-xs" onClick={() => openCandEdit(c)}>
                                   编辑
                                 </button>
@@ -616,8 +618,8 @@ export default function RecruitmentPage() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="职位标题" required className="col-span-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="职位标题" required className="sm:col-span-2">
             <input
               type="text"
               className="input input-bordered input-sm"
@@ -678,7 +680,7 @@ export default function RecruitmentPage() {
               <option value="closed">已关闭</option>
             </select>
           </Field>
-          <Field label="任职要求" className="col-span-2">
+          <Field label="任职要求" className="sm:col-span-2">
             <textarea
               className="textarea textarea-bordered textarea-sm"
               rows={3}
@@ -706,8 +708,8 @@ export default function RecruitmentPage() {
           </>
         }
       >
-        <div className="grid grid-cols-2 gap-3">
-          <Field label="应聘职位" required className="col-span-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="应聘职位" required className="sm:col-span-2">
             <select
               className="select select-bordered select-sm"
               value={candForm.job_opening_id}
@@ -762,7 +764,7 @@ export default function RecruitmentPage() {
               </select>
             </Field>
           )}
-          <Field label="备注" className="col-span-2">
+          <Field label="备注" className="sm:col-span-2">
             <textarea
               className="textarea textarea-bordered textarea-sm"
               rows={2}

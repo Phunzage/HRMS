@@ -306,7 +306,8 @@ export default function MainLayout() {
             >
               <Menu className="h-5 w-5" />
             </button>
-            <div className="truncate text-lg font-medium">人力资源管理系统</div>
+            {/* 窄屏隐藏标题防顶栏右侧溢出（抽屉内有 HRMS 品牌标识） */}
+            <div className="hidden truncate text-lg font-medium sm:block">人力资源管理系统</div>
           </div>
           <div className="flex items-center gap-3">
             {/* 通知铃铛 */}
@@ -372,7 +373,8 @@ export default function MainLayout() {
               {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
 
-            <div className="text-right">
+            {/* 窄屏隐藏姓名/角色文本，防止顶栏右侧溢出（375 视口 6px 横向滚动） */}
+            <div className="hidden text-right sm:block">
               <div className="text-sm font-medium">{user?.full_name || '未登录'}</div>
               <div className="text-xs text-base-content/60">
                 {user ? roleNames[user.role_code] || user.role_code : ''}
