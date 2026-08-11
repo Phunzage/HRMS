@@ -179,7 +179,7 @@ npm run dev
 - **Windows 桌面端**：`hrms-desktop Setup` 安装包（Electron 封装，加载线上前端，支持系统通知）
 - **Android 端**：`HRMS.apk`（Capacitor 远程加载模式，WebView 加载线上前端，支持软件前台通知）
 - **更新机制**：客户端启动后周期调用增量检测，有新版则下载更新包并引导安装；更新包存放于服务器，由 admin 在系统管理中登记 `app_versions` 记录
-- **当前版本**：Windows 1.0.5 / Android 1.0.4，后续支持其它系统
+- **当前版本**：Windows 1.0.7 / Android 1.0.5，后续支持其它系统
 
 ## 内置账号
 
