@@ -131,6 +131,7 @@ HRMS/
 ├── DESIGN.md                   # 系统设计文档
 ├── TESTING.md                  # 测试流程指南
 ├── PROGRESS.md                 # 构建进度报告
+├── deploy                      # 数据隔离相关
 └── start.bat / start.sh        # 本地一键启动
 ```
 
@@ -144,7 +145,7 @@ HRMS/
 
 ## 快速开始（本地开发）
 
-> 生产环境已部署至线上服务器，业务使用请直接访问服务器（见「部署与分发」）。以下为本地开发/联调方式。
+> 生产环境已部署至线上服务器，测试使用请直接访问服务器（见「部署与分发」），或下载软件。以下为本地开发/联调方式。
 
 ### 1. 创建数据库
 
@@ -189,9 +190,9 @@ npm run dev
 
 ```
              Nginx（按域名/端口分发）
-  phunzage.fun → 主公司 :8080
-  a.phunzage.fun → 公司A :8081
-  b.phunzage.fun → 公司B :8082
+  example.abc → 主公司 :8080	(目前不想搞域名备案说是~，先用端口捏)
+  a.example.abc → 公司A :8081
+  b.example.abc → 公司B :8082
         │                │
   ┌─────▼─────┐    ┌─────▼─────┐
   │ 后端A容器  │    │  后端B容器  │
@@ -210,7 +211,7 @@ npm run dev
 
 ```bash
 sudo /opt/hrms/scripts/new-company.sh <公司标识> <域名>
-# 例: sudo /opt/hrms/scripts/new-company.sh acme a.phunzage.fun
+# 例: sudo /opt/hrms/scripts/new-company.sh acme a.example.abc
 ```
 
 脚本自动完成：创建数据库 `hrms_acme` → 启动后端容器（自动分配 8081 起空闲端口）→ 复制前端目录 → 生成 Nginx server 块并重载。新公司首次登录用种子账号 admin/admin123，自行配置部门/员工/审批流，与主公司互不影响。
@@ -240,6 +241,8 @@ sudo /opt/hrms/scripts/new-company.sh <公司标识> <域名>
 - 客户端连接地址构建时定死，多公司分发不同入口需在登录页支持配置服务器地址（规划中）
 
 ## 内置账号
+
+**为避免混乱，软件与网页版仅开放 zhangwei 和 liuyang 供测试，如需体验全部功能，请 clone **
 
 | 账号 | 密码 | 角色 | 说明 |
 |------|------|------|------|
