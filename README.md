@@ -1,6 +1,6 @@
 # HRMS 人力资源管理系统
 
-前后端分离的人力资源管理系统（HRMS），覆盖组织人事、考勤、请假审批流、薪酬、招聘与统计仪表盘等核心模块。前端使用 React 18 + TypeScript + Vite + TailwindCSS + daisyUI，后端使用 Go 1.25 + Gin + GORM v2 + PostgreSQL，基于 JWT + RBAC 实现统一认证与细粒度权限控制。**AI项目，由 Hermes + Claude Code + DeepSeek v4 Flash 构建**
+前后端分离的人力资源管理系统（HRMS），覆盖组织人事、考勤、请假审批流、薪酬、招聘与统计仪表盘等核心模块。前端使用 React 18 + TypeScript + Vite + TailwindCSS + daisyUI，后端使用 Go 1.25 + Gin + GORM v2 + PostgreSQL，基于 JWT + RBAC 实现统一认证与细粒度权限控制，使用 Docker 实现数据隔离与多公司复用。**AI项目，由 Hermes + Claude Code + DeepSeek v4 Flash 构建**
 
 系统已上线并支持**三端形态**：
 - **网页版**：浏览器访问线上服务器（移动端已初步适配，抽屉导航/表格横滑/响应式断点）
@@ -174,12 +174,70 @@ npm run dev
 
 ## 部署与分发
 
-- **服务器**：阿里云 ECS（Ubuntu 24.04，PostgreSQL + Go systemd + Nginx 反代）
+- **服务器**：阿里云 ECS（Ubuntu 24.04，Docker 部署 PostgreSQL + Go 后端 + Nginx 反代）
 - **网页版**：浏览器直接访问线上地址即可（移动端已适配）
 - **Windows 桌面端**：`hrms-desktop Setup` 安装包（Electron 封装，加载线上前端，支持系统通知）
 - **Android 端**：`HRMS.apk`（Capacitor 远程加载模式，WebView 加载线上前端，支持软件前台通知）
-- **更新机制**：客户端启动后周期调用增量检测，有新版则下载更新包并引导安装；更新包存放于服务器，由 admin 在系统管理中登记 `app_versions` 记录
+- **更新机制**：客户端启动后周期调用增量检测，有新版则下载更新包并引导安装；更新包存放于服务器 `/opt/hrms/updates/`，由 admin 在系统管理中登记 `app_versions` 记录
 - **当前版本**：Windows 1.0.7 / Android 1.0.5，后续支持其它系统
+
+## 多公司部署（Docker）
+
+一套代码可为**多家公司**提供服务，各公司**数据完全隔离**（独立数据库 + 独立后端容器 + 独立入口），共享一个 PostgreSQL 容器与后端镜像。
+
+### 架构
+
+```
+             Nginx（按域名/端口分发）
+  phunzage.fun → 主公司 :8080
+  a.phunzage.fun → 公司A :8081
+  b.phunzage.fun → 公司B :8082
+        │                │
+  ┌─────▼─────┐    ┌─────▼─────┐
+  │ 后端A容器  │    │  后端B容器  │
+  │(hrms_a库) │    │(hrms_b库)  │
+  └─────┬─────┘    └─────┬─────┘
+        │                │
+  ┌─────▼────────────────▼─────┐
+  │   PostgreSQL 容器（1个）      │
+  │  hrms(主) hrms_a hrms_b ... │
+  └─────────────────────────────┘
+```
+
+数据隔离四层面：**数据库独立**（`hrms_<公司标识>`）、**后端进程独立**（容器+端口）、**入口独立**（域名/端口）、**前端独立**（`web-<公司标识>` 目录，相对路径 `/api` 自动走各自后端）。
+
+### 新增一家公司（一条命令）
+
+```bash
+sudo /opt/hrms/scripts/new-company.sh <公司标识> <域名>
+# 例: sudo /opt/hrms/scripts/new-company.sh acme a.phunzage.fun
+```
+
+脚本自动完成：创建数据库 `hrms_acme` → 启动后端容器（自动分配 8081 起空闲端口）→ 复制前端目录 → 生成 Nginx server 块并重载。新公司首次登录用种子账号 admin/admin123，自行配置部门/员工/审批流，与主公司互不影响。
+
+### 运维命令
+
+| 操作 | 命令 |
+|------|------|
+| 查看全部容器 | `docker ps` |
+| 查看单公司日志 | `docker logs -f hrms-backend-<标识>` |
+| 删除公司 | `sudo /opt/hrms/scripts/remove-company.sh <标识>` |
+| 备份单公司库 | `docker exec hrms-db pg_dump -U postgres hrms_<标识> > backup.sql` |
+| 恢复单公司库 | `docker exec -i hrms-db psql -U postgres -d hrms_<标识> < backup.sql` |
+| 进入数据库 | `docker exec -it hrms-db psql -U postgres -d hrms_<标识>` |
+| 重启全部服务 | `docker compose -f /opt/hrms/docker/docker-compose.yml restart` |
+| 查看资源占用 | `docker stats` |
+
+### 前端构建（多公司复用）
+
+前端使用**相对路径** `/api/v1`（`frontend/.env.production` 中 `VITE_API_BASE` 为空），同源请求由 Nginx 按域名反代到各公司后端——**同一构建产物即可服务所有公司**，无需为每家公司单独打包前端。
+
+### 说明与限制
+
+- 公司标识仅允许字母/数字/下划线（脚本有防注入校验）
+- 各公司使用同一后端镜像（`hrms-backend:latest`），升级时重新构建镜像后逐公司重启
+- 当前入口为 IP+端口（主公司 :80，新公司 :8081 起）；域名（含 HTTPS）需 ICP 备案通过后启用
+- 客户端连接地址构建时定死，多公司分发不同入口需在登录页支持配置服务器地址（规划中）
 
 ## 内置账号
 
