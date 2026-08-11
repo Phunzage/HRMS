@@ -34,3 +34,4 @@ frontend/node_modules/
 *.tmp
 .DS_Store
 Thumbs.db
+docker-compose.yml

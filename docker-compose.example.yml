@@ -1,0 +1,66 @@
+# 使用 .env 注入敏感配置（POSTGRES_PASSWORD / DB_PASSWORD / JWT_SECRET 等，勿硬编码）
+# 本地开发：复制 .env.example 为 .env 并填写；生产：服务器 /opt/hrms/.env
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: hrms-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: "your_password"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    # 端口不暴露公网，仅容器网络 + 本地调试
+    expose:
+      - "5432"
+    networks:
+      - hrms-net
+    # 1.6G 内存：限制 PG 用量防吃满
+    shm_size: '128m'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  backend:
+    build: .
+    container_name: hrms-backend
+    restart: always
+    environment:
+      DB_HOST: db
+      DB_PORT: "5432"
+      DB_USER: postgres
+      DB_PASSWORD: "your_password"
+      DB_NAME: hrms
+      # JWT_SECRET 等其余配置从 .env 文件读（compose 支持 env_file）
+    env_file:
+      - /opt/hrms/.env
+    ports:
+      - "127.0.0.1:8080:8080"   # nginx 反代目标 8080，保持不变
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - hrms-net
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/api/v1/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  pgdata:
+
+networks:
+  hrms-net:
