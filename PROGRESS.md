@@ -56,6 +56,11 @@
 | M43 | 系统通知-后端recent+Windows端 | prompts/batch39A_system_notify_win.md | ✅ 完成 | 8-10 11:50 |
 | M44 | 系统通知-Android端+后台轮询v1.0.4 | prompts/batch39B_android_notify.md | ✅ 完成 | 8-10 12:20 |
 | M45 | 修复权限重启重置+Win重打包1.0.5 | prompts/batch39C_fix_seed_rebuild_win.md | ✅ 完成 | 8-10 13:15 |
+| M46 | 批次41 Docker基础化（Dockerfile+compose+数据迁移+切换） | prompts/batch41_docker_stage1.md | ✅ 完成 | 8-11 |
+| M47 | 批次42 前端相对路径+Nginx双块+多公司模板new-company.sh | prompts/batch42_https_domain.md | ✅ 完成 | 8-11 |
+| M48 | 批次43 Cloudflare回源通道(8443+自签证书+安全组) | prompts/batch43_cloudflare_origin.md | ✅ 完成 | 8-11 |
+| M49 | 批次44 客户端域名切换(win1.0.7/android1.0.5) | prompts/batch44_client_domain_switch.md | ✅ 完成 | 8-11 |
+| M50 | 批次45 回退IP直连(Cloudflare 525待备案) | prompts/batch45_rollback_ip.md | ✅ 完成 | 8-11 |
 
 ## 已确认的环境
 
@@ -103,7 +108,7 @@
 P0 全部完成（8/8）：用户角色管理、审计日志、请假考勤联动、Excel 导出、自动化测试、登录安全加固、审批通知、文件上传。
 P1 完成（7/7）：薪酬批量生成、考勤月报、补卡申请、公告管理、数据范围权限、通知系统、工资导出。
 P2 完成（2/2）：绩效管理、暗色模式。
-剩余可做：通用审批流引擎、合同管理、培训管理、Docker 化、CI/CD、i18n。
+剩余可做：合同管理、培训管理、CI/CD、i18n、客户端登录页服务器地址配置、Android 正式签名、域名备案后切 HTTPS。（通用审批流引擎 ✅、Docker 化 ✅ 已完成）
 
 ## 三轮增强完成情况
 
@@ -186,19 +191,31 @@ P2 完成（2/2）：绩效管理、暗色模式。
 - **验证**：后端/前端 build+test 全绿；recent 接口公网 401→正常；Android 更新链路 1.0.4 可用；无真机（代码走查）
 - **遗留**：Android 13+ 需用户授权通知权限；通知点击仅打开 App（未跳具体页）；WorkManager 最小 15 分钟系统可延迟；App 被强停需手动打开恢复
 
+## 十三轮（部署架构升级：Docker 化 + 多公司 + Cloudflare）完成情况
+
+用户目标：一套代码服务多家公司（数据隔离）+ 域名 HTTPS。分 5 批次（M46~M50，8-11）完成：
+- **批次41（Docker 基础化）**：服务器后端容器化——多阶段 Dockerfile（golang:1.25-alpine 编译 → alpine:3.20 运行，GOPROXY=goproxy.cn）+ docker-compose.yml（db: postgres:16-alpine 内存限 512M + backend 内存限 256M，POSTGRES_PASSWORD 环境变量注入不硬编码）；数据 pg_dump 迁移进容器；**systemd 旧版保留可回滚**；Nginx 继续反代 127.0.0.1:8080
+- **批次42（多公司模板）**：前端改相对路径 `/api/v1`（VITE_API_BASE 置空，同一构建产物复用所有公司）；Nginx 双块（IP 直连 + 域名）；`deploy/new-company.sh` / `remove-company.sh` 模板部署到服务器 /opt/hrms/scripts/；测试公司 testco（hrms_testco 库 + hrms-backend-testco 容器 :8081）
+- **批次43（Cloudflare 回源）**：域名 phunzage.fun 未备案被阿里云拦截 80/443 → Cloudflare 代理方案；服务器加 **8443 监听**（自签名证书 /etc/nginx/ssl/）+ UFW 放行 8443 + 阿里云安全组放行 8443；nginx hrms-cloudflare.conf 按 Host 分发（主站/testco）
+- **批次44（客户端域名切换）**：win 1.0.7 / android 1.0.5 指向 https://phunzage.fun；重打包上传登记
+- **批次45（回退 IP 直连）**：Cloudflare 525（Full(strict) 不信任自签证书）未解决 → **客户端回退 IP 直连**（win 1.0.7 / android 1.0.5 覆盖重打，url 登记改回 http://115.29.197.130/updates/...）；域名问题**待 ICP 备案后处理**（部署保留 443/8443 回源配置）
+
 ## 最终状态
 
-项目已进入**使用、维护阶段**，M1~M45 全部完成并通过联调验收：
+项目已进入**使用、维护阶段**，M1~M50 全部完成并通过联调验收：
 
 - **后端**：Go + Gin + GORM 分层实现，AutoMigrate 建表（24 张）+ seed 内置数据，JWT + RBAC 权限控制（30 个权限点，admin/hr/manager/employee 定稿矩阵），通用审批流引擎 + 可配置审批流程，自动化测试 65 例全绿。
-- **前端**：React 18 + TypeScript + Vite + Tailwind + daisyUI，axios 统一拦截器，zustand 状态管理，移动端全面适配（抽屉导航/表格横滑/响应式 Modal），usePerm 权限点驱动菜单。
-- **三端形态**：网页版+ Windows 桌面端（Electron 1.0.5，loadURL 线上前端 + 系统通知 + 自动更新）+ Android 端（Capacitor 1.0.4，远程加载 + LocalNotifications + WorkManager 后台轮询）。
+- **前端**：React 18 + TypeScript + Vite + Tailwind + daisyUI，axios 统一拦截器，zustand 状态管理，移动端全面适配（抽屉导航/表格横滑/响应式 Modal），usePerm 权限点驱动菜单；生产构建走相对路径 `/api/v1`（多公司复用）。
+- **三端形态**：网页版 + Windows 桌面端（Electron **1.0.7**，loadURL 线上前端 + 系统通知 + 自动更新）+ Android 端（Capacitor **1.0.5**，远程加载 + LocalNotifications + WorkManager 后台轮询）；当前客户端连 **http://115.29.197.130**（IP 直连）。
+- **部署架构**：生产 Docker 化（后端多阶段镜像 + postgres:16-alpine 容器，主 hrms 库 + 多公司库）；多公司模板就绪（new-company.sh 一条命令新建公司）；域名 phunzage.fun **备案中**，443/8443 Cloudflare 回源配置保留但当前生效的是 IP 直连（详见下方遗留）。
 - **质量**：`go build`、`go vet`、`gofmt`、`npm run build` 全绿；端到端联调覆盖登录、CRUD、审批流、状态机、RBAC 越权、系统通知、移动端适配等场景。
 
 ### 遗留事项
 
+- **域名**：phunzage.fun 未备案被阿里云拦截 80/443，需先完成 ICP 备案；备案通过后启用 443/8443 Cloudflare 回源（当前 Cloudflare 回源报 525，Full(strict) 不信任自签证书，需换可信任证书或调 SSL 模式）
+- **客户端登录页服务器地址配置**：客户端连接地址构建时定死，多公司分发不同入口需支持登录页配置服务器地址（规划中）
 - Android 使用 debug 签名（上架应用市场需正式 keystore）、默认图标待替换
-- http 明文部署（绑定域名后可上 https + 证书）
+- http 明文部署（IP 直连），HTTPS 待域名备案后切换
 - Android 13+ 需用户手动授权通知权限；通知点击仅打开 App（未跳转具体页面）
 - WorkManager 后台轮询受系统限制（最小 15 分钟周期，可能被延迟）；App 被强停后需手动打开恢复
 - gradle 依赖需镜像下载（首次构建网络环境）

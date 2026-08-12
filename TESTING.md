@@ -10,7 +10,8 @@
 |---|---|
 | 前端（本地） | http://localhost:5173 |
 | 后端（本地） | http://localhost:8080 （前端已配 proxy，一般无需直连） |
-| 线上（网页版） |  |
+| 线上（网页版） | http://115.29.197.130（IP 直连；域名 phunzage.fun 备案中，备案后走 HTTPS） |
+| 线上（测试公司） | http://115.29.197.130:8081（testco 实例） |
 | 停止 | 关闭 `HRMS-Backend` / `HRMS-Frontend` 两个窗口（start.sh 用 Ctrl+C） |
 
 ## 1. 内置账号
@@ -93,9 +94,61 @@
 
 ### Android 端
 - 安装 `HRMS.apk`（com.hrms.app，**远程加载模式**，需联网）→ 启动加载线上前端
-- 前台通知弹窗（Android 13+ 需授权）；后台 WorkManager 轮询；更新检测（v1.0.4 起含后台轮询）
+- 前台通知弹窗（Android 13+ 需授权）；后台 WorkManager 轮询；更新检测（v1.0.4 起含后台轮询；当前 v1.0.5 连 http://115.29.197.130）
 
-## 6. 接口快速验证（curl）
+## 6. 多公司测试
+
+> 前置：服务器已 Docker 化，`deploy/new-company.sh` / `remove-company.sh` 已部署至 `/opt/hrms/scripts/`。
+
+### 新增一家公司（一条命令）
+
+```bash
+sudo /opt/hrms/scripts/new-company.sh <公司标识> <域名>
+# 例：sudo /opt/hrms/scripts/new-company.sh acme a.example.abc
+```
+
+脚本应依次完成：创建数据库 `hrms_acme` → 启动后端容器（自动分配 8081 起空闲端口）→ 复制前端目录 → 生成 Nginx server 块并 reload。验证：
+
+1. `docker ps` 出现 `hrms-backend-acme` 且状态 healthy
+2. `docker exec hrms-backend-acme wget -qO- http://127.0.0.1:8080/api/v1/health` 返回 ok
+3. 浏览器访问新公司入口 → 登录页出现 → 用种子账号 admin/admin123 登录
+4. 新公司配置部门/员工/审批流后，与主公司互不影响
+
+### testco 实例验证（已有测试公司）
+
+- 主站 http://115.29.197.130 与测试公司 http://115.29.197.130:8081 各自独立登录（账号 seed 独立）
+- 主站与 testco 的 `app_versions` / 员工 / 审批流数据互不可见
+
+### 数据隔离抽查
+
+| 检查项 | 预期 |
+|--------|------|
+| 主库查不到测试公司数据 | `docker exec hrms-db psql -U postgres -c "\dt"` 确认两库；主库 `hrms` 无 testco 员工 |
+| 测试库查不到主公司数据 | `hrms_testco` 库只有 testco 自己 seed 的数据 |
+| 容器/端口隔离 | `docker ps` 每公司一个 backend 容器、一个端口；停掉 testco 容器不影响主站 |
+| 前端目录隔离 | `/opt/hrms/web` 与 `/opt/hrms/web-testco` 独立 |
+
+### 删除一家公司
+
+```bash
+sudo /opt/hrms/scripts/remove-company.sh <公司标识>
+```
+
+应停容器 + 删库 + 删 Nginx conf + 删前端目录 + reload nginx；完成后 `docker ps` 不再有该公司容器、`docker exec hrms-db psql -U postgres -l` 不再有该公司库。
+
+## 7. Docker 运维验证
+
+| 操作 | 验证点 |
+|------|--------|
+| `docker ps` | hrms-backend（主，:8080）+ hrms-backend-testco（:8081）+ hrms-db 全部 healthy |
+| `docker stats` | db 内存 ≤ 512M、backend ≤ 256M 限制内 |
+| `docker logs -f hrms-backend` | 无 ERROR；启动日志正常（AutoMigrate + seed） |
+| 备份单公司库 | `docker exec hrms-db pg_dump -U postgres hrms > backup.sql` 成功 |
+| 恢复单公司库 | `docker exec -i hrms-db psql -U postgres -d hrms < backup.sql` 成功 |
+| 重启全部服务 | `docker compose -f /opt/hrms/docker/docker-compose.yml restart` 后全容器恢复 healthy |
+| 数据持久化 | 重启容器后业务数据仍在（compose named volume `pgdata` → /var/lib/postgresql/data） |
+
+## 8. 接口快速验证（curl）
 
 > 登录接口现在**必填图形验证码**（captcha_id + captcha_code），需先请求验证码。以下给出两种方式：
 
@@ -129,7 +182,7 @@ TOKEN=<python 自签的 HS256 token>
 curl -s "localhost:8080/api/v1/employees?page=1&page_size=5" -H "Authorization: Bearer $TOKEN"
 ```
 
-## 7. 常见问题
+## 9. 常见问题
 
 | 现象 | 处理 |
 |------|------|

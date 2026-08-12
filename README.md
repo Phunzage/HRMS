@@ -88,7 +88,7 @@
 | 层 | 技术 |
 |----|------|
 | 后端 | Go 1.25 + Gin + GORM v2 |
-| 数据库 | PostgreSQL 18 |
+| 数据库 | PostgreSQL 18（开发）/ 16（生产 Docker 容器，多库） |
 | 认证 | JWT（golang-jwt/jwt/v5）+ bcrypt |
 | 前端 | React 18 + TypeScript + Vite |
 | 样式 | TailwindCSS + daisyUI |
@@ -96,6 +96,9 @@
 | 请求 | Axios（拦截器注入 Bearer Token） |
 | Windows 桌面端 | Electron + electron-builder |
 | Android 端 | Capacitor + WorkManager + @capacitor/local-notifications |
+| 部署 | Docker / docker-compose（多阶段镜像 + postgres:16-alpine） |
+| 服务器 | Ubuntu 24.04 + Nginx（反代/SPA 回退/更新包）+ UFW + 阿里云安全组 |
+| 边缘（预留） | Cloudflare 代理回源（443/8443，域名备案后启用） |
 
 ## 目录结构
 

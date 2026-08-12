@@ -1,7 +1,7 @@
 # HRMS 系统设计架构文档（完整版）
 
 > 依据实际代码（`backend/internal/models`、`router/router.go`、`database/seed.go`、`desktop/`、`frontend/android/`）整理，与实现保持一致。
-> 更新日期：2026-08-10
+> 更新日期：2026-08-11
 
 ---
 
@@ -27,7 +27,7 @@
 │  路由层 router → handler（参数校验）→ service（业务规则）                 │
 │               → repository（数据访问）→ GORM                            │
 └────────────────────────────────────┬──────────────────────────────────┘
-                                     │ PostgreSQL 18 (hrms 库, 24 张表)
+                                     │ PostgreSQL (开发 18 / 生产 16, 24 张表, 多公司多库见 §6.2)
                                      ▼
 ```
 
@@ -48,7 +48,7 @@
 | 层 | 技术 |
 |----|------|
 | 后端 | Go 1.25 + Gin v1.12 + GORM v2（pgx 驱动） |
-| 数据库 | PostgreSQL 18（hrms 库） |
+| 数据库 | PostgreSQL 18（开发） / PostgreSQL 16（生产 Docker 容器，多库） |
 | 认证 | JWT (golang-jwt/v5, HS256) + bcrypt |
 | 配置 | godotenv + .env |
 | 日志 | log/slog |
@@ -59,6 +59,9 @@
 | HTTP | axios（拦截器） |
 | Windows 桌面端 | Electron + electron-builder（main/preload/updater/notify） |
 | Android 端 | Capacitor + WorkManager + @capacitor/local-notifications + TokenStore 桥接 |
+| 部署 | Docker / docker-compose（多阶段镜像 hrms-backend:latest + postgres:16-alpine） |
+| 服务器 | Ubuntu 24.04 + Nginx（反代/SPA 回退/更新包静态）+ UFW + 阿里云安全组 |
+| 边缘（预留） | Cloudflare 代理回源（443/8443，域名备案后启用） |
 
 ---
 
@@ -322,7 +325,7 @@ GET /auth/captcha → 图形验证码（base64Captcha，登录必填）
 | 薪酬 | 实发 = 基本 + 津贴 + 奖金 − 扣款（自动计算）；同人同月唯一；draft→confirmed→paid |
 | 招聘 | 候选人状态机 applied→interview→offer→hired/rejected |
 | 公告 | 置顶/草稿/发布；已读记录 announcement_reads（单条/全部已读），进入公告页自动全部已读 |
-| 更新 | 客户端启动 5s 首检 + 30~60min 随机轮询 `update/check`；更新包存服务器 /opt/hrms/updates/；win 1.0.5 / android 1.0.4 |
+| 更新 | 客户端启动 5s 首检 + 30~60min 随机轮询 `update/check`；更新包存服务器 /opt/hrms/updates/（`app_versions` 表登记）；win 1.0.7 / android 1.0.5（当前连 http://115.29.197.130 IP 直连） |
 | 通用 | 全部软删除；分页 page/page_size（默认 1/20，上限 100）；统一响应 {code,message,data} |
 
 ---
@@ -341,6 +344,7 @@ HRMS/
 │   ├── src/                 # api/components/hooks/layouts/pages/router/store/utils
 │   └── android/             # Capacitor Android 工程（远程加载线上前端）
 ├── desktop/                 # Electron Windows 桌面端（electron/main.js、updater.js、notify.js）
+├── deploy/                  # 多公司/Cloudflare 部署模板（new-company.sh、remove-company.sh、nginx-hrms.conf、hrms-cloudflare.conf）
 ├── prompts/                 # Claude Code 批次提示词（开发过程产物）
 ├── ARCHITECTURE.md          # 概要架构
 ├── DESIGN.md                # 本文档
@@ -349,14 +353,51 @@ HRMS/
 └── README.md                # 使用说明
 ```
 
-### 6.2 生产服务器
+### 6.2 生产部署（Docker）
+
+服务器容器化部署（Ubuntu 24.04 + Docker + Nginx），一套代码服务多家公司、数据隔离。
+
+```
+                     Nginx 反代（Ubuntu 24.04）
+       80：IP 直连默认服务（http://115.29.197.130 → 主后端）
+       80：域名块 + 443/8443（Cloudflare 回源预留，域名备案后启用）
+       按 server_name / 端口分发到各公司后端容器
+        ┌──────────────────────┬──────────────────────┐
+        │                      │                      │
+  ┌─────▼──────┐        ┌──────▼───────┐        ┌──────▼───────┐
+  │ hrms-backend│        │ hrms-backend-│        │ 新公司容器    │
+  │ :8080 主   │        │ testco :8081 │        │ :8082 起     │
+  └─────┬──────┘        └──────┬───────┘        └──────┬───────┘
+        │                      │                      │
+  ┌─────▼──────────────────────▼──────────────────────▼───────┐
+  │        hrms-db 容器（PostgreSQL 16，仅 1 个）                │
+  │        hrms(主)  hrms_testco  hrms_<公司标识> ...           │
+  └─────────────────────────────────────────────────────────────┘
+```
+
+要点：
+
+- **Dockerfile（多阶段构建）**：`golang:1.25-alpine` 编译（CGO_ENABLED=0，GOPROXY=goproxy.cn）→ `alpine:3.20` 运行（含 ca-certificates/tzdata），产物 `hrms-server`，容器内监听 8080
+- **docker-compose.yml**：`db`（postgres:16-alpine，内存限 512M）+ `backend`（镜像 hrms-backend:latest，内存限 256M）；`POSTGRES_PASSWORD`/`JWT_SECRET` 全部由环境变量注入（复用 `/opt/hrms/.env`），不硬编码进 compose
+- **数据迁移**：原 systemd 部署数据 `pg_dump` → 容器内恢复；**systemd 旧版保留可回滚**；Nginx 继续反代 `127.0.0.1:8080`
+- **多公司模板**：`deploy/new-company.sh <公司标识> <域名>` 一条命令完成——校验标识（仅字母/数字/下划线，防注入）→ 建库 `hrms_<标识>` → 生成独立 compose 并启动容器（自动分配 8081 起空闲端口）→ 复制前端目录 `web-<标识>` → 生成 Nginx server 块并 reload；`deploy/remove-company.sh <标识>` 反向清理（停容器 + 删库 + 删 conf + 删前端目录）
+- **数据隔离四层面**：数据库独立（`hrms_<标识>`）、后端进程独立（容器 + 端口）、入口独立（域名 / 端口）、前端独立（`web-<标识>` 目录）；共享一个 PG 容器与同一后端镜像
+- **端口规划**：主公司 80（IP 直连默认服务），新公司从 8081 起；Nginx 按 server_name / 端口反代到各后端容器
+- **Cloudflare 回源（预留）**：域名未备案被阿里云拦截 80/443，服务器预留 **8443 监听**（自签名证书 `/etc/nginx/ssl/`）+ UFW 放行 8443 + 阿里云安全组放行 8443；`deploy/hrms-cloudflare.conf` 按 Host 分发（主站/testco）。**当前客户端走 IP 直连**，域名待 ICP 备案通过后启用
+- **更新机制**：更新包存 `/opt/hrms/updates/`（Nginx `/updates/` 静态下载）；admin 在系统管理登记 `app_versions` 记录（表见 §2.1）；客户端轮询 `GET /api/v1/update/check` 增量检测
+- **前端多公司复用**：`VITE_API_BASE` 置空、走相对路径 `/api/v1`，同源请求由 Nginx 按域名反代——**同一构建产物服务所有公司**，无需单独打包
+
+### 6.3 生产服务器（systemd 旧版，保留可回滚）
+
+Docker 化前的部署方式，已迁移至容器；保留用于回滚。
 
 ```
 Ubuntu 24.04
-├── PostgreSQL 18            # 低内存调优配置
-├── /opt/hrms/hrms           # Go 后端（systemd hrms.service，:8080）
+├── PostgreSQL 18            # 系统安装（低内存调优），旧版数据源（数据已 pg_dump 迁移至容器）
+├── /opt/hrms/hrms           # Go 后端（systemd hrms.service，:8080，旧版）
 ├── /opt/hrms/uploads/       # 上传文件
 ├── /opt/hrms/updates/       # 更新包（win exe / android apk，Nginx /updates/ 静态下载）
+├── /opt/hrms/scripts/       # 多公司运维脚本（new-company.sh / remove-company.sh，同时部署至服务器）
 ├── Nginx                    # 80 端口反代 + SPA 回退
-└── UFW                      # 仅放行 22/80/443
+└── UFW                      # 放行 22/80/443/8443（8443 供 Cloudflare 回源预留）
 ```

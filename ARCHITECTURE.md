@@ -1,12 +1,12 @@
 # HRMS 人力资源管理系统 — 架构设计文档
 
 > 架构师：Hermes Agent（指挥官）｜ 实现：Claude Code（deepseek-flash）
-> 更新日期：2026-08-10
+> 更新日期：2026-08-11
 > 参考项目：github.com/pbrong/hrms（Go 单体 HRMS）、github.com/frappe/hrms（模块化开源 HRMS 的模块划分思路）
 
 ## 1. 总体架构
 
-前后端分离单体架构（Monolith-first，部署简单），未来可按模块拆分微服务。系统支持**三端形态**——浏览器网页版、Windows 桌面端（Electron）、Android 端（Capacitor WebView），三者均访问**同一服务器**（同一后端 + 同一数据库）。
+前后端分离单体架构（Monolith-first，部署简单），未来可按模块拆分微服务。系统支持**三端形态**——浏览器网页版、Windows 桌面端（Electron）、Android 端（Capacitor WebView），三者均访问**同一服务器**；生产采用 **Docker 容器化**，一套代码服务多家公司（各公司独立数据库 + 独立后端容器 + 独立入口）。
 
 ```
 ┌──────────────────────────┬──────────────────────────┬─────────────────────────────┐
@@ -15,15 +15,28 @@
 │  React Router+Axios+zustand│ 系统通知 notify IPC     │  LocalNotifications +  WorkManager│
 │  移动端抽屉/横滑适配       │  自动更新 updater.js     │  TokenStore 桥接 + 原生更新    │
 └──────────────────────┬───┴──────────────────────┬───┴─────────────────────────────┘
-                       │         REST /api/v1 (JSON, JWT Bearer)
-┌──────────────────────▼──────────────────────┬──▼──────────────────────────────────┐
-│              Gin HTTP 服务 (Go 1.25)         │  Nginx 反代 (80) + SPA 回退          │
-│  middleware: CORS → Logger → JWT Auth → RBAC │  /uploads/ 静态 + /updates/ 更新包    │
-│  handler 层 → service 层 → repository 层 → GORM│                                  │
-└──────────────────────┬────────────────────────┴───┬───────────────────────────────┘
-                       │ PostgreSQL 18 (hrms 库, 24 张表)
-                       ▼
+                       │        REST /api/v1 (JSON, JWT Bearer)
+┌──────────────────────▼────────────────────────────────────────────────────────────┐
+│                        Nginx 反代（Ubuntu 24.04，生产）                            │
+│   80：IP 直连默认服务 + 域名块 ｜ 443/8443：Cloudflare 回源预留（域名备案后启用）     │
+│   /uploads 静态 + /updates 更新包 + SPA 回退                                        │
+└──────────────────────┬────────────────────────────────────────────────────────────┘
+              ┌────────┴────────────┬─────────────────────┐
+              │                     │                     │
+   ┌──────────▼──────────┐  ┌───────▼──────────┐  ┌───────▼─────────┐
+   │  hrms-backend 容器   │  │ hrms-backend-    │  │  新公司容器      │
+   │  :8080（主公司）     │  │ testco :8081     │  │  :8082 起        │
+   │  handler→service→    │  │ handler→service→ │  │ new-company.sh   │
+   │  repository→GORM     │  │ repository→GORM  │  │                  │
+   └──────────┬──────────┘  └───────┬──────────┘  └───────┬─────────┘
+              │                     │                     │
+   ┌──────────▼─────────────────────▼─────────────────────▼─────────┐
+   │         hrms-db 容器（PostgreSQL 16）                           │
+   │         hrms(主)  hrms_testco  hrms_<公司标识> …（24 张表）     │
+   └────────────────────────────────────────────────────────────────┘
 ```
+
+每个后端容器内部均为 Gin HTTP 服务分层：middleware（CORS → Logger → JWT Auth → RBAC）→ handler → service → repository → GORM；前端生产构建走相对路径 `/api/v1`，由 Nginx 按域名/端口反代到对应公司后端。
 
 ## 2. 技术栈
 
@@ -31,6 +44,7 @@
 |----|------|------|
 | 后端 | Go 1.25 + Gin | HTTP 框架 |
 | ORM | GORM v2 | PostgreSQL 驱动 |
+| 数据库 | PostgreSQL（开发 18 / 生产 16 容器） | 主库 hrms + 多公司库 |
 | 认证 | JWT (golang-jwt/jwt/v5) + bcrypt | access+refresh 双 token |
 | 配置 | godotenv + 环境变量 | .env 管理密钥 |
 | 日志 | 标准库 log/slog | 结构化日志 |
@@ -40,7 +54,9 @@
 | 请求 | Axios（拦截器注入 JWT） | API 客户端 |
 | Windows 桌面端 | Electron + electron-builder | loadURL 线上前端 + 系统通知 + 自动更新 |
 | Android 端 | Capacitor + WorkManager + @capacitor/local-notifications | 远程加载 + 前台/后台系统通知 |
-| 服务器 | Ubuntu 24.04 + Nginx + systemd + UFW | 生产部署 |
+| 部署 | Docker / docker-compose | 多阶段镜像 hrms-backend:latest + postgres:16-alpine，多公司多库 |
+| 服务器 | Ubuntu 24.04 + Nginx + UFW + 阿里云安全组 | 生产部署 |
+| 边缘（预留） | Cloudflare 代理回源 | 443/8443 回源，域名备案后启用 |
 
 ## 3. 目录结构
 
@@ -130,5 +146,6 @@ desktop/                    # Electron Windows 桌面端
 | M7 | 前端各模块页面 | ✅ 已完成 |
 | M8 | 联调 + 构建验证 + 文档 | ✅ 已完成 |
 | M9~M45 | **十轮增强**（2026-08-04 ~ 08-10）：P0-P2 功能补全（用户/角色/审计、Excel、测试、安全加固）、通用审批流引擎、权限重构（admin/hr 职责分离）、可配置审批流（多级+角色/岗位/权限池）、审批链修复（递归经理）、移动端全面适配（19 页）、服务器部署上线、Windows/Android 客户端、自动更新、系统级推送通知 | ✅ 已完成 |
+| M46~M50 | **部署架构升级**（2026-08-11）：Docker 基础化（Dockerfile 多阶段 + compose + 数据迁移 + systemd 保留可回滚）、前端相对路径 + Nginx 双块 + 多公司模板（new-company.sh/remove-company.sh）、Cloudflare 回源通道（8443 + 自签证书 + 安全组）、客户端域名切换（win 1.0.7 / android 1.0.5）、回退 IP 直连（Cloudflare 525 待 ICP 备案后处理） | ✅ 已完成 |
 
-> 详细批次记录见 `PROGRESS.md`（M1~M45 全量时间线 + 每轮增强说明）。
+> 详细批次记录见 `PROGRESS.md`（M1~M50 全量时间线 + 每轮增强说明）。

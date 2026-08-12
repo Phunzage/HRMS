@@ -31,12 +31,13 @@
 - `backend/` — Go 后端（分层：handler → service → repository → gorm）
 - `frontend/` — React 前端；`frontend/android/` 为 Capacitor Android 工程（远程加载模式，WebView 指向线上前端）
 - `desktop/` — Electron Windows 桌面端（electron/main.js、updater.js、notify.js）
+- `deploy/` — 多公司/Cloudflare 部署模板（new-company.sh、remove-company.sh、nginx 配置）
 - `prompts/` — Claude Code 批次提示词（开发过程产物）
 
 ## 运行方式
 - 本地开发：后端 `cd backend && go run ./cmd/server`；前端 `cd frontend && npm run dev`（默认 5173，vite proxy `/api` → `localhost:8080`）
 - 后端监听 8080
-- **生产部署**：已上线阿里云 ECS（地址见 README 部署章节）（Ubuntu 24.04，Go systemd + Nginx 反代），业务使用走服务器；桌面端/Android 端加载线上前端，日常开发不涉及
+- **生产部署**：已上线阿里云 ECS（Docker 化 + 多公司模板 + Nginx 反代，域名 phunzage.fun 备案中；部署文件在 `deploy/` 与服务器 `/opt/hrms/`），业务使用走服务器；桌面端/Android 端加载线上前端，日常开发不涉及
 
 ## 质量要求
 - 每个任务完成后运行 `go build ./...`（后端）确保编译通过；前端任务运行 `npm run build` 确保构建通过
