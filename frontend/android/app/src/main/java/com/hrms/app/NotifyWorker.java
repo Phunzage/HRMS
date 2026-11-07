@@ -33,7 +33,7 @@ import java.net.URL;
 public class NotifyWorker extends Worker {
     private static final String TAG = "HRMSNotify";
     // 生产服务器地址（与前端 VITE_API_BASE 一致）
-    private static final String API_BASE = "http://115.29.197.130";
+    private static final String API_BASE = "https://hrms.phunzage.fun";
     // 状态存储：token 基线（识别登录会话）+ 最近通知 id 基线
     private static final String PREF = "hrms_notify_state";
     private static final String KEY_LAST_TOKEN = "last_token";

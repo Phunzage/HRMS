@@ -11,7 +11,7 @@ const path = require('path')
 const { URL } = require('url')
 
 // 生产服务器地址（可用环境变量覆盖，便于本机测试指向其他环境）
-const API_BASE = process.env.HRMS_UPDATE_API || 'http://115.29.197.130'
+const API_BASE = process.env.HRMS_UPDATE_API || 'https://hrms.phunzage.fun'
 // 首次检查延迟：启动后 5 秒
 const FIRST_CHECK_DELAY = 5 * 1000
 // 随机间隔区间：30~60 分钟

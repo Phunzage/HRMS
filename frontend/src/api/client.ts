@@ -25,7 +25,8 @@ declare module 'axios' {
 }
 
 // API 基址：开发环境走 vite proxy（空字符串 + /api/v1 → localhost:8080）；
-// 生产/桌面端构建时通过 VITE_API_BASE 注入绝对地址（如 http://115.29.197.130）
+// 生产/桌面端构建时通过 VITE_API_BASE 注入绝对地址（如 https://hrms.phunzage.fun）；
+// 留空则走相对路径 —— 网页版/桌面端/Android 均由同源域名加载，无需注入
 const API_BASE = import.meta.env.VITE_API_BASE || ''
 
 // axios 实例：baseURL /api/v1

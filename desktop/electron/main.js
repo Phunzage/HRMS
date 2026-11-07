@@ -7,8 +7,8 @@ const { registerNotifyIpc } = require('./notify')
 
 // 开发模式加载 vite dev server，生产模式直接加载线上前端（http 同源，避免 file:// 限制）
 const DEV_URL = 'http://localhost:5173'
-// 生产：线上前端地址（同源 http，无 file:// 下 module script CORS 问题，API 请求同源）
-const PROD_URL = 'http://115.29.197.130'
+// 生产：线上前端地址（HTTPS 域名 —— 同源 API 请求，token 走 TLS 加密，不再明文）
+const PROD_URL = 'https://hrms.phunzage.fun'
 // 用 app.getAppPath()（asar 根目录）拼路径，再用 pathToFileURL 显式转成 file:// URL；
 // loadFile 直接传 asar 内路径在本机出现 URL 错乱（file:///C:/），故用 loadURL 显式给定
 const WEB_INDEX = path.join(app.getAppPath(), 'build-web', 'index.html')

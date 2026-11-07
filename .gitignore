@@ -35,3 +35,6 @@ frontend/node_modules/
 .DS_Store
 Thumbs.db
 docker-compose.yml
+
+# 项目交接文档（内部运维细节，不入公开仓库）
+HANDOFF.md

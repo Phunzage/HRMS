@@ -110,6 +110,9 @@ server {
     server_name $DOMAIN;
     client_max_body_size 50m;
 
+    # Let's Encrypt HTTP-01 验证通道（给该公司子域签证书时需要；详见 deploy/nginx-acme-challenge.conf）
+    include /etc/nginx/snippets/acme-challenge.conf;
+
     root $WEB_DIR;
     index index.html;
 

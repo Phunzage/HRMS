@@ -33,7 +33,7 @@ import java.util.Random;
 public class Updater {
     private static final String TAG = "HRMSUpdater";
     // 生产服务器地址（更新 API 为公开接口，无需登录）
-    private static final String API_BASE = "http://115.29.197.130";
+    private static final String API_BASE = "https://hrms.phunzage.fun";
     // 通知渠道：Android 8.0+ 必须
     static final String CHANNEL_ID = "updates";
 
